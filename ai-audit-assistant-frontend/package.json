@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@ant-design/icons": "^5.0.0",
+    "@ant-design/icons": "^5.4.0",
     "antd": "^5.19.3",
     "axios": "^1.7.2",
     "date-fns": "^3.6.0",
@@ -14,10 +14,10 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "eslint": "^8.38.0",
     "eslint-config-react-app": "^7.0.1"
   },

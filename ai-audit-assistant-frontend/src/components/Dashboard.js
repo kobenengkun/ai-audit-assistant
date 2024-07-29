@@ -1,74 +1,84 @@
-import React from 'react';
-import { Layout, Row, Col, Card, Statistic, Button, Typography } from 'antd';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { Layout, Card, Row, Col, Typography, Spin } from 'antd';
+import { PieChart, Pie, Cell, Legend } from 'recharts';
+import { dashboard } from '../services/api';
 
 const { Content } = Layout;
 const { Title } = Typography;
 
 const Dashboard = () => {
-  const auditStatusData = [
-    { name: '进行中', value: 5 },
-    { name: '待处理', value: 3 },
-    { name: '已完成', value: 8 },
-  ];
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await dashboard.fetchData();
+        setData(response.data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to fetch dashboard data');
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) return <Spin size="large" />;
+  if (error) return <div>Error: {error}</div>;
+  if (!data) return null;
 
   return (
-    <Content style={{ padding: '20px' }}>
-      <Title level={2} style={{ textAlign: 'center', marginBottom: '30px' }}>
-        AI审核小助手
-      </Title>
-      <Title level={3}>审核系统概览</Title>
-      <Row gutter={16}>
+    <Content style={{ margin: '24px 16px 0' }}>
+      <Title level={2}>AI审核小助手</Title>
+      <Row gutter={[16, 16]}>
         <Col span={8}>
-          <Card>
-            <Statistic title="总审核任务" value={16} />
-            <Button style={{ marginTop: 16 }} type="primary">
-              查看所有任务
-            </Button>
+          <Card title="总审核任务">
+            <Title level={3}>{data.totalTasks}</Title>
           </Card>
         </Col>
         <Col span={8}>
-          <Card>
-            <Statistic title="待处理任务" value={3} valueStyle={{ color: '#cf1322' }} />
-            <Button style={{ marginTop: 16 }} type="primary">
-              处理任务
-            </Button>
+          <Card title="待处理任务">
+            <Title level={3} style={{ color: '#FF4D4F' }}>{data.pendingTasks}</Title>
           </Card>
         </Col>
         <Col span={8}>
-          <Card>
-            <Statistic title="本月完成任务" value={8} valueStyle={{ color: '#3f8600' }} />
+          <Card title="本月完成任务">
+            <Title level={3} style={{ color: '#52C41A' }}>{data.completedTasksThisMonth}</Title>
           </Card>
         </Col>
       </Row>
-      <Row style={{ marginTop: 20 }}>
+      <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
         <Col span={12}>
           <Card title="审核任务状态分布">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={auditStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {auditStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <PieChart width={300} height={300}>
+              <Pie
+                data={data.taskStatusDistribution}
+                cx={150}
+                cy={150}
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {data.taskStatusDistribution.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Legend />
+            </PieChart>
           </Card>
         </Col>
         <Col span={12}>
           <Card title="最近活动">
-            {/* 这里可以添加最近的审核活动列表 */}
-            <p>暂无最近活动</p>
+            <ul>
+              {data.recentActivities.map((activity, index) => (
+                <li key={index}>{activity}</li>
+              ))}
+            </ul>
           </Card>
         </Col>
       </Row>
