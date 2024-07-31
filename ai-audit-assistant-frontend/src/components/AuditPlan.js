@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
-import { format, parseISO } from 'date-fns';
+import dayjs from 'dayjs'; // 使用 dayjs 替代 date-fns
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -22,12 +22,13 @@ const AuditPlan = () => {
       setData(response.data);
     } catch (error) {
       handleError(error);
+      message.error('获取审核计划失败');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchAuditPlans();
   }, [fetchAuditPlans]);
 
@@ -36,7 +37,7 @@ const AuditPlan = () => {
     if (record) {
       form.setFieldsValue({
         ...record,
-        dateRange: [parseISO(record.startDate), parseISO(record.endDate)],
+        dateRange: [dayjs(record.startDate), dayjs(record.endDate)],
       });
     } else {
       form.resetFields();
@@ -47,12 +48,16 @@ const AuditPlan = () => {
   const handleOk = useCallback(async () => {
     try {
       const values = await form.validateFields();
+      console.log('Form values:', values); // 日志记录
+
       const auditPlanData = {
         ...values,
-        startDate: format(values.dateRange[0], 'yyyy-MM-dd'),
-        endDate: format(values.dateRange[1], 'yyyy-MM-dd'),
+        startDate: values.dateRange[0].format('YYYY-MM-DD'),
+        endDate: values.dateRange[1].format('YYYY-MM-DD'),
       };
       delete auditPlanData.dateRange;
+
+      console.log('Audit plan data to be sent:', auditPlanData); // 日志记录
 
       if (editingRecord) {
         await auditPlans.update(editingRecord.id, auditPlanData);
@@ -65,6 +70,14 @@ const AuditPlan = () => {
       setIsModalVisible(false);
       fetchAuditPlans();
     } catch (error) {
+      console.error('Error in handleOk:', error); // 详细错误日志
+      if (error.isAxiosError) {
+        message.error(`操作失败: ${error.response?.data?.message || error.message || '未知错误'}`);
+      } else if (error.name === 'ValidationError') {
+        message.error('表单验证失败，请检查输入');
+      } else {
+        message.error('发生未知错误，请稍后重试');
+      }
       handleError(error);
     }
   }, [form, editingRecord, fetchAuditPlans]);
@@ -75,6 +88,8 @@ const AuditPlan = () => {
       message.success('删除审核计划成功');
       fetchAuditPlans();
     } catch (error) {
+      console.error('Error deleting audit plan:', error); // 详细错误日志
+      message.error('删除审核计划失败');
       handleError(error);
     }
   }, [fetchAuditPlans]);
@@ -130,10 +145,10 @@ const AuditPlan = () => {
               { required: true, message: '请选择日期范围' },
               ({ getFieldValue }) => ({
                 validator(_, value) {
-                  if (!value || (value[0].isBefore(new Date()) && value[1].isAfter(new Date()))) {
+                  if (!value || (value[0] && value[1])) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error('开始日期必须在今天之前，结束日期必须在今天之后'));
+                  return Promise.reject(new Error('请选择有效的日期范围'));
                 },
               }),
             ]}

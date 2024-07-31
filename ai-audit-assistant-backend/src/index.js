@@ -9,6 +9,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  if (req.method === 'POST') console.log('Request body:', req.body);
+  next();
+});
+
 // Routes
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to AI Audit Assistant Backend' });
@@ -16,8 +23,6 @@ app.get('/', (req, res) => {
 
 app.get('/api/dashboard', (req, res) => {
   try {
-    // 这里你可以返回一些模拟的仪表板数据
-    // 在实际应用中，这些数据通常来自数据库
     res.json({
       totalTasks: 16,
       pendingTasks: 3,
@@ -36,6 +41,34 @@ app.get('/api/dashboard', (req, res) => {
   } catch (error) {
     console.error('Error in /api/dashboard route:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/api/audit-plans', (req, res) => {
+  try {
+    const auditPlans = [
+      { id: 1, name: 'Audit Plan 1', status: 'In Progress', startDate: '2024-08-01', endDate: '2024-08-05' },
+      { id: 2, name: 'Audit Plan 2', status: 'Completed', startDate: '2024-08-10', endDate: '2024-08-15' },
+      { id: 3, name: 'Audit Plan 3', status: 'Pending', startDate: '2024-08-20', endDate: '2024-08-25' }
+    ];
+    res.json(auditPlans);
+  } catch (error) {
+    console.error('Error in /api/audit-plans route:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// New POST route for creating audit plans
+app.post('/api/audit-plans', (req, res) => {
+  try {
+    const newPlan = req.body;
+    // 这里应该添加将新计划保存到数据库的逻辑
+    // 现在我们只是将其打印出来并返回成功消息
+    console.log('New audit plan:', newPlan);
+    res.status(201).json({ message: 'Audit plan created successfully', plan: newPlan });
+  } catch (error) {
+    console.error('Error creating audit plan:', error);
+    res.status(500).json({ message: 'Error creating audit plan' });
   }
 });
 
