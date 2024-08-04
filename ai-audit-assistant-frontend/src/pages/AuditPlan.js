@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message } from 'antd';
+import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message, Cascader, TreeSelect } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
-import dayjs from 'dayjs'; // 使用 dayjs 替代 date-fns
+import dayjs from 'dayjs';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -48,7 +48,7 @@ const AuditPlan = () => {
   const handleOk = useCallback(async () => {
     try {
       const values = await form.validateFields();
-      console.log('Form values:', values); // 日志记录
+      console.log('Form values:', values);
 
       const auditPlanData = {
         ...values,
@@ -57,7 +57,7 @@ const AuditPlan = () => {
       };
       delete auditPlanData.dateRange;
 
-      console.log('Audit plan data to be sent:', auditPlanData); // 日志记录
+      console.log('Audit plan data to be sent:', auditPlanData);
 
       if (editingRecord) {
         await auditPlans.update(editingRecord.id, auditPlanData);
@@ -70,7 +70,7 @@ const AuditPlan = () => {
       setIsModalVisible(false);
       fetchAuditPlans();
     } catch (error) {
-      console.error('Error in handleOk:', error); // 详细错误日志
+      console.error('Error in handleOk:', error);
       if (error.isAxiosError) {
         message.error(`操作失败: ${error.response?.data?.message || error.message || '未知错误'}`);
       } else if (error.name === 'ValidationError') {
@@ -88,7 +88,7 @@ const AuditPlan = () => {
       message.success('删除审核计划成功');
       fetchAuditPlans();
     } catch (error) {
-      console.error('Error deleting audit plan:', error); // 详细错误日志
+      console.error('Error deleting audit plan:', error);
       message.error('删除审核计划失败');
       handleError(error);
     }
@@ -97,6 +97,9 @@ const AuditPlan = () => {
   const columns = useMemo(() => [
     { title: '审核计划名称', dataIndex: 'name', key: 'name' },
     { title: '审核类型', dataIndex: 'type', key: 'type' },
+    { title: '审核目标', dataIndex: 'goal', key: 'goal' }, // 新增:审核目标列
+    { title: '审核范围', dataIndex: 'scope', key: 'scope' }, // 新增:审核范围列
+    { title: '审核人员', dataIndex: 'staff', key: 'staff' }, // 新增:审核人员列
     { title: '开始日期', dataIndex: 'startDate', key: 'startDate' },
     { title: '结束日期', dataIndex: 'endDate', key: 'endDate' },
     { title: '状态', dataIndex: 'status', key: 'status' },
@@ -132,11 +135,27 @@ const AuditPlan = () => {
           </Form.Item>
           <Form.Item name="type" label="审核类型" rules={[{ required: true, message: '请选择审核类型' }]}>
             <Select>
-              <Select.Option value="财务审核">财务审核</Select.Option>
-              <Select.Option value="运营审核">运营审核</Select.Option>
-              <Select.Option value="合规审核">合规审核</Select.Option>
-              <Select.Option value="IT审核">IT审核</Select.Option>
+              <Select.Option value="一方审核:内部审核">一方审核:内部审核</Select.Option>
+              <Select.Option value="二方审核:客户审核">二方审核:客户审核</Select.Option>
+              <Select.Option value="三方审核:审核机构">三方审核:审核机构</Select.Option>
+              <Select.Option value="供应商审核">供应商审核</Select.Option>
             </Select>
+          </Form.Item>
+          {/* 新增:审核目标 */}
+          <Form.Item name="goal" label="审核目标" rules={[{ required: true, message: '请输入审核目标' }]}>
+            <Input.TextArea />
+          </Form.Item>
+          {/* 新增:审核范围 */}
+          <Form.Item name="scope" label="审核范围" rules={[{ required: true, message: '请选择审核范围' }]}>
+            <Cascader options={[/* 从后端获取的审核范围选项数据 */]} />
+          </Form.Item>
+          {/* 新增:审核人员 */}
+          <Form.Item name="staff" label="审核人员" rules={[{ required: true, message: '请选择审核人员' }]}>
+            <TreeSelect treeData={[/* 从后端获取的审核人员树状选项数据 */]} treeCheckable />
+          </Form.Item>
+          {/* 新增:审核准则 */}
+          <Form.Item name="criteria" label="审核准则" rules={[{ required: true, message: '请输入审核准则' }]}>
+            <Input.TextArea />
           </Form.Item>
           <Form.Item 
             name="dateRange" 

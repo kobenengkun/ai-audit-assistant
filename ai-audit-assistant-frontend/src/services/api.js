@@ -8,7 +8,7 @@ const api = axios.create({
   // withCredentials: true, // 暂时注释掉
 });
 
-// 添加请求拦截器，用于日志记录
+// 添加请求拦截器,用于日志记录
 api.interceptors.request.use(
   config => {
     console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`, config.data);
@@ -20,7 +20,7 @@ api.interceptors.request.use(
   }
 );
 
-// 添加响应拦截器，用于日志记录和错误处理
+// 添加响应拦截器,用于日志记录和错误处理
 api.interceptors.response.use(
   response => {
     console.log(`API Response: ${response.config.method.toUpperCase()} ${response.config.url}`, response.data);
@@ -64,7 +64,11 @@ export const auditPlans = {
   create: (data) => api.post('/audit-plans', data).catch(handleApiError),
   update: (id, data) => api.put(`/audit-plans/${id}`, data).catch(handleApiError),
   delete: (id) => api.delete(`/audit-plans/${id}`).catch(handleApiError),
-  fetchById: (id) => api.get(`/audit-plans/${id}`).catch(handleApiError)
+  fetchById: (id) => api.get(`/audit-plans/${id}`).catch(handleApiError),
+  // 新增:获取审核范围选项数据
+  fetchScopeOptions: () => api.get('/audit-scopes').then(response => response.data).catch(handleApiError),
+  // 新增:获取审核人员选项数据
+  fetchStaffOptions: () => api.get('/audit-staff').then(response => response.data).catch(handleApiError),
 };
 
 export const dashboard = {
