@@ -5,13 +5,13 @@ import Navigation from './components/Navigation';
 
 const { Content } = Layout;
 
-// 使用 React.lazy 进行代码分割
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const AuditPlan = lazy(() => import('./components/AuditPlan'));
-const AuditExecution = lazy(() => import('./components/AuditExecution'));
-const AuditReport = lazy(() => import('./components/AuditReport'));
-const AuditImprovement = lazy(() => import('./components/AuditImprovement'));
-const NotFound = lazy(() => import('./components/NotFound'));
+// 更新 React.lazy 导入路径
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const AuditPlan = lazy(() => import('./pages/AuditPlan'));
+const AuditExecution = lazy(() => import('./pages/AuditExecution'));
+const AuditReport = lazy(() => import('./pages/AuditReport'));
+const AuditImprovement = lazy(() => import('./pages/AuditImprovement'));
+const NotFound = lazy(() => import('./components/NotFound')); // 假设 NotFound 仍在 components 文件夹中
 
 // 创建一个加载指示器组件
 const LoadingFallback = () => (
