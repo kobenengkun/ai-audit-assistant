@@ -114,5 +114,29 @@ export const auditReports = {
   create: (data) => api.post('/audit-reports', data).catch(handleApiError),
   fetchById: (id) => api.get(`/audit-reports/${id}`).then(response => response.data).catch(handleApiError),
 };
+// ... 其他现有的导入和代码 ...
+
+export const auditImprovements = {
+  fetchSuppliers: () => api.get('/audit-improvements/suppliers')
+    .then(response => response.data)
+    .catch(error => {
+      console.error('Error fetching suppliers:', error);
+      throw error;
+    }),
+  markAsCompleted: (supplierId) => api.put(`/audit-improvements/suppliers/${supplierId}/complete`)
+    .then(response => response.data)
+    .catch(error => {
+      console.error('Error marking supplier as completed:', error);
+      throw error;
+    }),
+  updateSupplier: (supplierId, data) => api.put(`/audit-improvements/suppliers/${supplierId}`, data)
+    .then(response => response.data)
+    .catch(error => {
+      console.error('Error updating supplier:', error);
+      throw error;
+    }),
+};
+
+// ... 其他现有的导出 ...
 
 export default api;
