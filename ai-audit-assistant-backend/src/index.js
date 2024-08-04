@@ -22,20 +22,34 @@ app.use(express.json());
 // 日志中间件
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  if (req.method === 'POST') console.log('Request body:', req.body);
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) console.log('Request body:', req.body);
   next();
 });
 
 // 模拟数据（考虑移到单独的模块）
 let auditPlans = [
-  { id: 1, name: 'Audit Plan 1', type: 'Type A', startDate: '2024-08-01', endDate: '2024-08-05', status: '计划中' },
-  { id: 2, name: 'Audit Plan 2', type: 'Type B', startDate: '2024-08-10', endDate: '2024-08-15', status: '进行中' },
+  { id: '1', name: 'Audit Plan 1', type: 'Type A', startDate: '2024-08-01', endDate: '2024-08-05', status: '计划中' },
+  { id: '2', name: 'Audit Plan 2', type: 'Type B', startDate: '2024-08-10', endDate: '2024-08-15', status: '进行中' },
 ];
 
 let auditTasks = [
   { id: 1, name: 'Audit Task 1', status: 'pending' },
   { id: 2, name: 'Audit Task 2', status: 'completed' },
 ];
+
+// 辅助函数
+function findAuditPlanById(id) {
+  return auditPlans.find(plan => plan.id === id);
+}
+
+function updateAuditPlan(id, updatedPlan) {
+  const index = auditPlans.findIndex(plan => plan.id === id);
+  if (index !== -1) {
+    auditPlans[index] = { ...auditPlans[index], ...updatedPlan };
+    return auditPlans[index];
+  }
+  return null;
+}
 
 // 路由
 app.get('/', (req, res) => {
@@ -72,12 +86,61 @@ app.get('/api/audit-plans', (req, res) => {
 app.post('/api/audit-plans', (req, res) => {
   try {
     const newPlan = req.body;
-    // 这里应该添加将新计划保存到数据库的逻辑
+    newPlan.id = (auditPlans.length + 1).toString(); // 生成字符串类型的 ID
+    auditPlans.push(newPlan);
     console.log('New audit plan:', newPlan);
     res.status(201).json({ message: 'Audit plan created successfully', plan: newPlan });
   } catch (error) {
     console.error('Error creating audit plan:', error);
     res.status(500).json({ message: 'Error creating audit plan' });
+  }
+});
+
+app.put('/api/audit-plans/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const updatedPlan = req.body;
+    console.log(`Attempting to update audit plan with ID: ${id}`);
+    console.log('Update data:', updatedPlan);
+
+    const existingPlan = findAuditPlanById(id);
+    if (!existingPlan) {
+      console.log(`Audit plan with ID ${id} not found`);
+      return res.status(404).json({ message: 'Audit plan not found' });
+    }
+
+    const updated = updateAuditPlan(id, updatedPlan);
+    if (updated) {
+      console.log('Audit plan updated successfully:', updated);
+      res.json({ message: 'Audit plan updated successfully', plan: updated });
+    } else {
+      console.log(`Failed to update audit plan with ID ${id}`);
+      res.status(500).json({ message: 'Failed to update audit plan' });
+    }
+  } catch (error) {
+    console.error('Error updating audit plan:', error);
+    res.status(500).json({ message: 'Error updating audit plan' });
+  }
+});
+
+app.delete('/api/audit-plans/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    console.log(`Attempting to delete audit plan with ID: ${id}`);
+
+    const planToDelete = findAuditPlanById(id);
+    if (!planToDelete) {
+      console.log(`Audit plan with ID ${id} not found`);
+      return res.status(404).json({ message: 'Audit plan not found' });
+    }
+
+    const index = auditPlans.indexOf(planToDelete);
+    auditPlans.splice(index, 1);
+    console.log(`Audit plan with ID ${id} deleted successfully`);
+    res.json({ message: 'Audit plan deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting audit plan:', error);
+    res.status(500).json({ message: 'Error deleting audit plan' });
   }
 });
 
@@ -101,8 +164,11 @@ app.use((req, res) => {
 
 // 全局错误处理
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'Something went wrong!',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 // 启动服务器
