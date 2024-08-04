@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message, Cascader, TreeSelect } from 'antd';
+import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message, TreeSelect } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
@@ -97,9 +97,8 @@ const AuditPlan = () => {
   const columns = useMemo(() => [
     { title: '审核计划名称', dataIndex: 'name', key: 'name' },
     { title: '审核类型', dataIndex: 'type', key: 'type' },
-    { title: '审核目标', dataIndex: 'goal', key: 'goal' }, // 新增:审核目标列
-    { title: '审核范围', dataIndex: 'scope', key: 'scope' }, // 新增:审核范围列
-    { title: '审核人员', dataIndex: 'staff', key: 'staff' }, // 新增:审核人员列
+    { title: '审核人员', dataIndex: 'staff', key: 'staff' },
+    { title: '审核标准', dataIndex: 'standard', key: 'standard' },
     { title: '开始日期', dataIndex: 'startDate', key: 'startDate' },
     { title: '结束日期', dataIndex: 'endDate', key: 'endDate' },
     { title: '状态', dataIndex: 'status', key: 'status' },
@@ -141,21 +140,18 @@ const AuditPlan = () => {
               <Select.Option value="供应商审核">供应商审核</Select.Option>
             </Select>
           </Form.Item>
-          {/* 新增:审核目标 */}
-          <Form.Item name="goal" label="审核目标" rules={[{ required: true, message: '请输入审核目标' }]}>
-            <Input.TextArea />
+          <Form.Item name="staff" label="审核人员">
+            <Select mode="tags" style={{ width: '100%' }} tokenSeparators={[',']}>
+              {/* 从后端获取的审核人员选项数据 */}
+            </Select>
           </Form.Item>
-          {/* 新增:审核范围 */}
-          <Form.Item name="scope" label="审核范围" rules={[{ required: true, message: '请选择审核范围' }]}>
-            <Cascader options={[/* 从后端获取的审核范围选项数据 */]} />
-          </Form.Item>
-          {/* 新增:审核人员 */}
-          <Form.Item name="staff" label="审核人员" rules={[{ required: true, message: '请选择审核人员' }]}>
-            <TreeSelect treeData={[/* 从后端获取的审核人员树状选项数据 */]} treeCheckable />
-          </Form.Item>
-          {/* 新增:审核准则 */}
-          <Form.Item name="criteria" label="审核准则" rules={[{ required: true, message: '请输入审核准则' }]}>
-            <Input.TextArea />
+          <Form.Item name="standard" label="审核标准">
+            <Select mode="tags" style={{ width: '100%' }} tokenSeparators={[',']}>
+              <Select.Option value="IATF 16949">IATF 16949</Select.Option>
+              <Select.Option value="ISO 9001">ISO 9001</Select.Option>
+              <Select.Option value="VDA 6.3">VDA 6.3</Select.Option>
+              {/* 添加更多常见的审核标准选项 */}
+            </Select>
           </Form.Item>
           <Form.Item 
             name="dateRange" 

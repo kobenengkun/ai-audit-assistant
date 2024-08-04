@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Layout, Table, Button, Space, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { auditTasks } from '../services/api';
+import { auditTasks, auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
 
 const { Content } = Layout;
@@ -14,7 +14,18 @@ const AuditExecution = () => {
     setLoading(true);
     try {
       const response = await auditTasks.fetchAll();
-      setData(response.data);
+      const tasksWithPlanInfo = response.data
+        ? await Promise.all(
+            response.data.map(async (task) => {
+              const planResponse = await auditPlans.fetchById(task.auditPlanId);
+              return {
+                ...task,
+                planName: planResponse.data.name,
+              };
+            })
+          )
+        : [];
+      setData(tasksWithPlanInfo);
     } catch (error) {
       handleError(error);
     } finally {
@@ -38,6 +49,7 @@ const AuditExecution = () => {
 
   const columns = [
     { title: '任务名称', dataIndex: 'name', key: 'name' },
+    { title: '关联审核计划', dataIndex: 'planName', key: 'planName' },
     { title: '任务类型', dataIndex: 'type', key: 'type' },
     { title: '开始日期', dataIndex: 'startDate', key: 'startDate' },
     { title: '结束日期', dataIndex: 'endDate', key: 'endDate' },
