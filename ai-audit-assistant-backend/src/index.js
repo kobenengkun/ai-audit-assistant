@@ -101,6 +101,18 @@ app.get('/api/audit-plans/list', (req, res) => {
     res.status(500).json({ message: 'Error fetching audit plan list' });
   }
 });
+// 新增：获取单个审核计划的详细信息
+app.get('/api/audit-plans/:id', (req, res) => {
+  const id = req.params.id;
+  const plan = findAuditPlanById(id);
+  if (plan) {
+    res.json(plan);
+  } else {
+    res.status(404).json({ message: 'Audit plan not found' });
+  }
+});
+
+// 创建新的审核计划
 
 app.post('/api/audit-plans', (req, res) => {
   try {

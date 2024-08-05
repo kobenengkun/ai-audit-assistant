@@ -36,7 +36,10 @@ const AuditExecution = () => {
               };
             } catch (error) {
               console.error(`Error fetching plan for task ${task.id}:`, error);
-              return { ...task, planName: 'Unknown Plan' };
+              return { 
+                ...task, 
+                planName: error.response?.status === 404 ? 'Plan Not Found' : 'Error Loading Plan' 
+              };
             }
           }
           return { ...task, planName: 'No Plan Associated' };
