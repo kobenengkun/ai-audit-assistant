@@ -19,7 +19,7 @@ const AuditPlan = () => {
     setLoading(true);
     try {
       const response = await auditPlans.fetchAll();
-      setData(response.data);
+      setData(response);
     } catch (error) {
       handleError(error);
       message.error('获取审核计划失败');
@@ -48,7 +48,6 @@ const AuditPlan = () => {
   const handleOk = useCallback(async () => {
     try {
       const values = await form.validateFields();
-      console.log('Form values:', values);
 
       const auditPlanData = {
         ...values,
@@ -57,42 +56,40 @@ const AuditPlan = () => {
       };
       delete auditPlanData.dateRange;
 
-      console.log('Audit plan data to be sent:', auditPlanData);
-
       if (editingRecord) {
         await auditPlans.update(editingRecord.id, auditPlanData);
         message.success('更新审核计划成功');
+        setData(data.map(plan => plan.id === editingRecord.id ? { ...editingRecord, ...auditPlanData } : plan));
       } else {
-        await auditPlans.create(auditPlanData);
+        const newPlan = await auditPlans.create(auditPlanData);
         message.success('创建审核计划成功');
+        setData([...data, newPlan]);
       }
 
       setIsModalVisible(false);
       fetchAuditPlans();
     } catch (error) {
       console.error('Error in handleOk:', error);
-      if (error.isAxiosError) {
-        message.error(`操作失败: ${error.response?.data?.message || error.message || '未知错误'}`);
-      } else if (error.name === 'ValidationError') {
-        message.error('表单验证失败，请检查输入');
+      if (error.response) {
+        message.error(`操作失败: ${error.response.data.message || '未知错误'}`);
       } else {
         message.error('发生未知错误，请稍后重试');
       }
       handleError(error);
     }
-  }, [form, editingRecord, fetchAuditPlans]);
+  }, [form, editingRecord, data, fetchAuditPlans]);
 
   const handleDelete = useCallback(async (id) => {
     try {
       await auditPlans.delete(id);
       message.success('删除审核计划成功');
-      fetchAuditPlans();
+      setData(data.filter(plan => plan.id !== id));
     } catch (error) {
       console.error('Error deleting audit plan:', error);
       message.error('删除审核计划失败');
       handleError(error);
     }
-  }, [fetchAuditPlans]);
+  }, [data]);
 
   const columns = useMemo(() => [
     { title: '审核计划名称', dataIndex: 'name', key: 'name' },
@@ -123,12 +120,13 @@ const AuditPlan = () => {
       <Table columns={columns} dataSource={data} rowKey="id" loading={loading} />
 
       <Modal
+        key={editingRecord ? editingRecord.id : 'new'}
         title={editingRecord ? "编辑审核计划" : "创建新审核计划"}
         open={isModalVisible}
         onOk={handleOk}
         onCancel={() => setIsModalVisible(false)}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" initialValues={editingRecord || {}}>
           <Form.Item name="name" label="审核计划名称" rules={[{ required: true, message: '请输入审核计划名称' }]}>
             <Input />
           </Form.Item>

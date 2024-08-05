@@ -33,8 +33,13 @@ let auditPlans = [
 ];
 
 let auditTasks = [
-  { id: 1, name: 'Audit Task 1', status: 'pending' },
-  { id: 2, name: 'Audit Task 2', status: 'completed' },
+  { id: 1, name: 'Audit Task 1', status: 'pending', auditPlanId: '1' },
+  { id: 2, name: 'Audit Task 2', status: 'completed', auditPlanId: '2' },
+];
+
+let auditReports = [
+  { id: '1', taskName: '审核任务1', auditDate: '2024-08-01', auditor: '审核员A', status: '已完成' },
+  { id: '2', taskName: '审核任务2', auditDate: '2024-08-05', auditor: '审核员B', status: '进行中' }
 ];
 
 // 辅助函数
@@ -79,14 +84,28 @@ app.get('/api/dashboard', (req, res) => {
   }
 });
 
+// 审核计划路由
 app.get('/api/audit-plans', (req, res) => {
   res.json(auditPlans);
+});
+
+app.get('/api/audit-plans/list', (req, res) => {
+  try {
+    const planList = auditPlans.map(plan => ({
+      id: plan.id,
+      name: plan.name
+    }));
+    res.json(planList);
+  } catch (error) {
+    console.error('Error fetching audit plan list:', error);
+    res.status(500).json({ message: 'Error fetching audit plan list' });
+  }
 });
 
 app.post('/api/audit-plans', (req, res) => {
   try {
     const newPlan = req.body;
-    newPlan.id = (auditPlans.length + 1).toString(); // 生成字符串类型的 ID
+    newPlan.id = auditPlans.length + 1; // 生成字符串类型的 ID
     auditPlans.push(newPlan);
     console.log('New audit plan:', newPlan);
     res.status(201).json({ message: 'Audit plan created successfully', plan: newPlan });
@@ -144,21 +163,63 @@ app.delete('/api/audit-plans/:id', (req, res) => {
   }
 });
 
+// 审核任务路由
 app.get('/api/audit-tasks', (req, res) => {
   const { status } = req.query;
+  let filteredTasks = auditTasks;
   if (status === 'pending') {
-    const pendingTasks = auditTasks.filter(task => task.status === 'pending');
-    res.json(pendingTasks);
+    filteredTasks = auditTasks.filter(task => task.status === 'pending');
   } else if (status === 'completed') {
-    const completedTasks = auditTasks.filter(task => task.status === 'completed');
-    res.json(completedTasks);
-  } else {
-    res.json(auditTasks);
+    filteredTasks = auditTasks.filter(task => task.status === 'completed');
+  }
+  res.json(filteredTasks);
+});
+
+app.post('/api/audit-tasks', (req, res) => {
+  try {
+    const newTask = req.body;
+    newTask.id = auditTasks.length + 1;
+    auditTasks.push(newTask);
+    console.log('New audit task:', newTask);
+    res.status(201).json({ message: 'Audit task created successfully', task: newTask });
+  } catch (error) {
+    console.error('Error creating audit task:', error);
+    res.status(500).json({ message: 'Error creating audit task' });
+  }
+});
+
+app.put('/api/audit-tasks/:id', (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const updatedTask = req.body;
+    const index = auditTasks.findIndex(task => task.id === id);
+    if (index !== -1) {
+      auditTasks[index] = { ...auditTasks[index], ...updatedTask };
+      console.log('Updated audit task:', auditTasks[index]);
+      res.json({ message: 'Audit task updated successfully', task: auditTasks[index] });
+    } else {
+      res.status(404).json({ message: 'Audit task not found' });
+    }
+  } catch (error) {
+    console.error('Error updating audit task:', error);
+    res.status(500).json({ message: 'Error updating audit task' });
+  }
+});
+
+// 审核报告路由
+app.get('/api/audit-reports', (req, res) => {
+  try {
+    console.log('Fetching audit reports');
+    res.json(auditReports);
+  } catch (error) {
+    console.error('Error fetching audit reports:', error);
+    res.status(500).json({ message: 'Error fetching audit reports' });
   }
 });
 
 // 404 处理
 app.use((req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.url}`);
   res.status(404).json({ message: 'Route not found' });
 });
 

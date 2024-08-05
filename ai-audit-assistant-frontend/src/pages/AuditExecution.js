@@ -82,7 +82,7 @@ const AuditExecution = () => {
       form.setFieldsValue({
         ...record,
         auditPlanId: record.auditPlanId,
-        dateRange: [dayjs(record.startDate), dayjs(record.endDate)],
+        dateRange: record.startDate && record.endDate ? [dayjs(record.startDate), dayjs(record.endDate)] : undefined,
       });
     } else {
       form.resetFields();
