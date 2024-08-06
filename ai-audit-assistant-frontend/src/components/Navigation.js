@@ -19,7 +19,7 @@ const Navigation = () => {
           <Link to="/audit-plans">审核计划</Link>
         </Menu.Item>
         <Menu.Item key="/audit-execution" icon={<AuditOutlined />}>
-          <Link to="/audit-execution">审核实施</Link>
+          <Link to="/audit-execution">审核执行</Link>
         </Menu.Item>
         <Menu.Item key="/audit-report" icon={<FileTextOutlined />}>
           <Link to="/audit-report">审核报告</Link>

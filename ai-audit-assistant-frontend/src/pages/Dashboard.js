@@ -1,24 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, theme, Table, List } from 'antd';
+import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, theme, Table, List, Input } from 'antd';
 import { PieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DownloadOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { dashboard } from '../services/api';
 
 const { Content } = Layout;
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
+const { Search } = Input;
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [aiInsights, setAiInsights] = useState(null);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await dashboard.fetchData(dateRange[0], dateRange[1]);
       setData(response);
+      // 假设API现在返回AI生成的见解和建议
+      setAiInsights(response.aiInsights);
+      setAiRecommendations(response.aiRecommendations);
     } catch (err) {
       message.error('Failed to fetch dashboard data');
     } finally {
@@ -40,6 +46,17 @@ const Dashboard = () => {
 
   const exportData = () => {
     message.info('Exporting data...');
+    // 实现导出逻辑
+  };
+
+  const handleAiAssistant = async (query) => {
+    try {
+      // 假设有一个API端点来处理AI助手查询
+      const response = await dashboard.queryAiAssistant(query);
+      message.info(response.answer);
+    } catch (err) {
+      message.error('AI助手无法处理您的请求');
+    }
   };
 
   if (loading) return <Spin size="large" />;
@@ -123,6 +140,7 @@ const Dashboard = () => {
                   <Tooltip />
                   <Legend />
                   <Line type="monotone" dataKey="completed" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="predicted" stroke="#82ca9d" strokeDasharray="3 3" />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -145,15 +163,8 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col span={12}>
-            <Card title="最近活动">
-              <List
-                dataSource={data.recentActivities}
-                renderItem={(item) => (
-                  <List.Item>
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
+            <Card title="AI洞察">
+              <Paragraph>{aiInsights}</Paragraph>
             </Card>
           </Col>
         </Row>
@@ -172,6 +183,31 @@ const Dashboard = () => {
                   <Statistic title="本月新增任务" value={data.newTasksThisMonth} />
                 </Col>
               </Row>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+          <Col span={12}>
+            <Card title="AI推荐">
+              <List
+                dataSource={aiRecommendations}
+                renderItem={(item) => (
+                  <List.Item>
+                    <Text>{item}</Text>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
+          <Col span={12}>
+            <Card title="AI助手">
+              <Search
+                placeholder="询问AI助手..."
+                enterButton={<RobotOutlined />}
+                size="large"
+                onSearch={handleAiAssistant}
+              />
             </Card>
           </Col>
         </Row>

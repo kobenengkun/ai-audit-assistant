@@ -64,6 +64,8 @@ export const auditPlans = {
   update: (id, data) => api.put(`/audit-plans/${id}`, data).catch(handleApiError),
   delete: (id) => api.delete(`/audit-plans/${id}`).catch(handleApiError),
   fetchById: (id) => api.get(`/audit-plans/${id}`).then(response => response.data).catch(handleApiError),
+  getAiSuggestions: () => api.get('/audit-plans/ai-suggestions').then(response => response.data).catch(handleApiError),
+  applyAiSuggestions: () => api.post('/audit-plans/apply-ai-suggestions').then(response => response.data).catch(handleApiError),
 };
 
 export const dashboard = {
