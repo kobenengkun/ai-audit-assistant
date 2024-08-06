@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message, Tooltip, Tag, Alert } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, RobotOutlined, AlertOutlined } from '@ant-design/icons';
+import { Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space, message, Tooltip, Tag, Alert, Popconfirm } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RobotOutlined, AlertOutlined, ScheduleOutlined, SafetyOutlined, TeamOutlined } from '@ant-design/icons';
 import { auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
 import dayjs from 'dayjs';
@@ -112,6 +112,45 @@ const AuditPlan = () => {
     }
   }, []);
 
+  // 新增：智能排程
+  const generateSmartSchedule = useCallback(async () => {
+    setError(null);
+    try {
+      const smartSchedule = await auditPlans.generateSmartSchedule();
+      setData(smartSchedule);
+      message.success('智能排程生成成功');
+    } catch (error) {
+      setError('智能排程生成失败');
+      handleError(error);
+    }
+  }, []);
+
+  // 新增：风险评估
+  const assessRisk = useCallback(async (id) => {
+    setError(null);
+    try {
+      const updatedPlan = await auditPlans.assessRisk(id);
+      setData(data.map(plan => plan.id === id ? updatedPlan : plan));
+      message.success('风险评估完成');
+    } catch (error) {
+      setError('风险评估失败');
+      handleError(error);
+    }
+  }, [data]);
+
+  // 新增：资源分配
+  const optimizeResources = useCallback(async () => {
+    setError(null);
+    try {
+      const optimizedPlans = await auditPlans.optimizeResources();
+      setData(optimizedPlans);
+      message.success('资源分配优化完成');
+    } catch (error) {
+      setError('资源分配优化失败');
+      handleError(error);
+    }
+  }, []);
+
   const columns = useMemo(() => [
     { title: '审核计划名称', dataIndex: 'name', key: 'name' },
     { title: '审核类型', dataIndex: 'type', key: 'type' },
@@ -140,11 +179,19 @@ const AuditPlan = () => {
       render: (_, record) => (
         <Space size="middle">
           <Button icon={<EditOutlined />} onClick={() => showModal(record)}>编辑</Button>
-          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} danger>删除</Button>
+          <Popconfirm
+            title="确定要删除这个审核计划吗？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="是"
+            cancelText="否"
+          >
+            <Button icon={<DeleteOutlined />} danger>删除</Button>
+          </Popconfirm>
+          <Button icon={<SafetyOutlined />} onClick={() => assessRisk(record.id)}>风险评估</Button>
         </Space>
       ),
     },
-  ], [showModal, handleDelete]);
+  ], [showModal, handleDelete, assessRisk]);
 
   return (
     <Content style={{ padding: '20px' }}>
@@ -156,6 +203,12 @@ const AuditPlan = () => {
         </Button>
         <Button icon={<RobotOutlined />} onClick={getAiSuggestions}>
           获取AI建议
+        </Button>
+        <Button icon={<ScheduleOutlined />} onClick={generateSmartSchedule}>
+          智能排程
+        </Button>
+        <Button icon={<TeamOutlined />} onClick={optimizeResources}>
+          优化资源分配
         </Button>
       </Space>
       {aiSuggestions && (
