@@ -1,36 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Table, Input, Button, Space, Tag, Modal, Typography, Descriptions, Row, Col, Card, Spin, message } from 'antd';
-import { SearchOutlined, EyeOutlined, DownloadOutlined, BarChartOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Layout, Table, Input, Button, Space, Tag, Modal, Typography, Card, Row, Col, Statistic, Tooltip, message } from 'antd';
+import { EyeOutlined, DownloadOutlined, SwapOutlined, SearchOutlined, SyncOutlined, RobotOutlined } from '@ant-design/icons';
+import { LineChart, XAxis, YAxis, CartesianGrid, Line, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { auditReports, aiService } from '../services/api';
+import debounce from 'lodash/debounce';
 
 const { Content } = Layout;
-const { Title, Paragraph } = Typography;
+const { Title, Text } = Typography;
+const { Search } = Input;
 
 const AuditReport = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [aiSummary, setAiSummary] = useState('');
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [riskLevels, setRiskLevels] = useState({});
+  const [trendData, setTrendData] = useState([]);
+  const [selectedReports, setSelectedReports] = useState([]);
+  const [isComparingReports, setIsComparingReports] = useState(false);
+  const [statistics, setStatistics] = useState({ total: 0, high: 0, medium: 0, low: 0 });
 
   useEffect(() => {
     fetchReports();
+    fetchRiskTrend();
   }, []);
-
-  useEffect(() => {
-    if (reports.length > 0) {
-      reports.forEach(report => detectAnomalies(report.id));
-    }
-  }, [reports]);
 
   const fetchReports = async () => {
     setLoading(true);
     try {
       const data = await auditReports.fetchAll();
       setReports(data);
+      updateStatistics(data);
     } catch (error) {
       message.error('Failed to fetch audit reports');
     } finally {
@@ -38,30 +37,84 @@ const AuditReport = () => {
     }
   };
 
-  const generateAISummary = async (reportId) => {
+  const updateStatistics = (data) => {
+    const stats = data.reduce((acc, report) => {
+      acc.total++;
+      if (report.riskLevel) {
+        acc[report.riskLevel.toLowerCase()]++;
+      }
+      return acc;
+    }, { total: 0, high: 0, medium: 0, low: 0 });
+    setStatistics(stats);
+  };
+
+  const fetchRiskTrend = async () => {
     try {
-      const summary = await aiService.generateReportSummary(reportId);
-      setAiSummary(summary);
+      const data = await aiService.getRiskTrend();
+      setTrendData(data);
     } catch (error) {
-      message.error('Failed to generate AI summary');
+      message.error('Failed to fetch risk trend data');
     }
   };
 
-  const handleQuestionSubmit = async () => {
+  const handleSearch = useCallback(debounce(async (value) => {
+    setLoading(true);
     try {
-      const response = await aiService.askQuestion(selectedReport.id, question);
-      setAnswer(response.answer);
+      const results = await aiService.smartSearch(value);
+      setReports(results);
+      updateStatistics(results);
     } catch (error) {
-      message.error('Failed to get AI response');
+      message.error('Failed to perform smart search');
+    } finally {
+      setLoading(false);
+    }
+  }, 300), []);
+
+  const showReportDetails = (report) => {
+    setSelectedReport(report);
+    setIsModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+  };
+
+  const downloadReport = (reportId) => {
+    message.info(`Downloading report ${reportId}`);
+    // Implement actual download logic
+  };
+
+  const toggleReportSelection = (report) => {
+    setSelectedReports(prev => 
+      prev.includes(report.id) 
+        ? prev.filter(id => id !== report.id)
+        : [...prev, report.id]
+    );
+  };
+
+  const compareReports = async () => {
+    if (selectedReports.length !== 2) {
+      message.error('Please select exactly two reports to compare');
+      return;
+    }
+    setIsComparingReports(true);
+    try {
+      const comparisonResult = await aiService.compareReports(selectedReports);
+      // Display comparison result in a new modal or component
+      message.success('Reports compared successfully');
+    } catch (error) {
+      message.error('Failed to compare reports');
+    } finally {
+      setIsComparingReports(false);
     }
   };
 
-  const detectAnomalies = async (reportId) => {
-    try {
-      const result = await aiService.detectAnomalies(reportId);
-      setRiskLevels(prevLevels => ({...prevLevels, [reportId]: result.riskLevel}));
-    } catch (error) {
-      console.error('Failed to detect anomalies:', error);
+  const getRiskLevelColor = (riskLevel) => {
+    switch(riskLevel?.toLowerCase()) {
+      case 'high': return 'red';
+      case 'medium': return 'orange';
+      case 'low': return 'green';
+      default: return 'default';
     }
   };
 
@@ -75,13 +128,11 @@ const AuditReport = () => {
       title: '审核任务',
       dataIndex: 'taskName',
       key: 'taskName',
-      sorter: (a, b) => a.taskName.localeCompare(b.taskName),
     },
     {
       title: '审核日期',
       dataIndex: 'auditDate',
       key: 'auditDate',
-      sorter: (a, b) => new Date(a.auditDate) - new Date(b.auditDate),
     },
     {
       title: '审核人',
@@ -89,21 +140,23 @@ const AuditReport = () => {
       key: 'auditor',
     },
     {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === '已完成' ? 'green' : 'orange'}>{status}</Tag>
+      title: '风险等级',
+      dataIndex: 'riskLevel',
+      key: 'riskLevel',
+      render: (riskLevel) => (
+        <Tag color={getRiskLevelColor(riskLevel)}>
+          {riskLevel ? riskLevel.toUpperCase() : 'N/A'}
+        </Tag>
       ),
     },
     {
-      title: '风险等级',
-      dataIndex: 'id',
-      key: 'riskLevel',
-      render: (id) => (
-        <Tag color={riskLevels[id] === 'high' ? 'red' : riskLevels[id] === 'medium' ? 'orange' : 'green'}>
-          {riskLevels[id] || 'Analyzing'}
-        </Tag>
+      title: 'AI分析',
+      dataIndex: 'aiAnalysis',
+      key: 'aiAnalysis',
+      render: (aiAnalysis) => (
+        <Tooltip title={aiAnalysis}>
+          <Text ellipsis style={{ width: 200 }}>{aiAnalysis || 'N/A'}</Text>
+        </Tooltip>
       ),
     },
     {
@@ -111,60 +164,107 @@ const AuditReport = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Button icon={<EyeOutlined />} onClick={() => showReportDetails(record)}>
-            查看
-          </Button>
-          <Button icon={<DownloadOutlined />} onClick={() => downloadReport(record.id)}>
-            下载
-          </Button>
+          <Tooltip title="查看详情">
+            <Button icon={<EyeOutlined />} onClick={() => showReportDetails(record)} />
+          </Tooltip>
+          <Tooltip title="下载报告">
+            <Button icon={<DownloadOutlined />} onClick={() => downloadReport(record.id)} />
+          </Tooltip>
+          <Tooltip title="选择比较">
+            <Button 
+              icon={<SwapOutlined />} 
+              onClick={() => toggleReportSelection(record)}
+              type={selectedReports.includes(record.id) ? 'primary' : 'default'}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
 
-  const showReportDetails = (report) => {
-    setSelectedReport(report);
-    setIsModalVisible(true);
-    setAiSummary('');
-    setAnswer('');
-  };
-
-  const handleModalClose = () => {
-    setIsModalVisible(false);
-  };
-
-  const downloadReport = (reportId) => {
-    message.info(`Downloading report ${reportId}`);
-  };
-
   return (
     <Content style={{ padding: '24px' }}>
       <Title level={2}>审核报告</Title>
+      
       <Row gutter={[16, 16]}>
-        <Col span={24}>
+        <Col span={6}>
           <Card>
-            <Space style={{ marginBottom: 16 }}>
-              <Input
-                placeholder="搜索报告"
-                prefix={<SearchOutlined />}
-                style={{ width: 200 }}
-              />
-              <Button type="primary" onClick={fetchReports}>
-                刷新
-              </Button>
-              <Button icon={<BarChartOutlined />} onClick={() => message.info('Trend analysis feature coming soon')}>
-                趋势分析
-              </Button>
-            </Space>
-            <Table
-              columns={columns}
-              dataSource={reports}
-              rowKey="id"
-              loading={loading}
-            />
+            <Statistic title="总报告数" value={statistics.total} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="高风险报告" value={statistics.high} valueStyle={{ color: '#cf1322' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="中风险报告" value={statistics.medium} valueStyle={{ color: '#faad14' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="低风险报告" value={statistics.low} valueStyle={{ color: '#3f8600' }} />
           </Card>
         </Col>
       </Row>
+
+      <Card style={{ marginTop: 16 }}>
+        <Row gutter={16} align="middle">
+          <Col span={12}>
+            <Search
+              placeholder="智能搜索报告"
+              allowClear
+              enterButton="搜索"
+              size="large"
+              onSearch={handleSearch}
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col span={12}>
+            <Space>
+              <Tooltip title="刷新数据">
+                <Button icon={<SyncOutlined />} onClick={fetchReports}>刷新</Button>
+              </Tooltip>
+              <Tooltip title="AI助手">
+                <Button icon={<RobotOutlined />} onClick={() => message.info('AI助手功能即将推出')}>AI助手</Button>
+              </Tooltip>
+              <Tooltip title="对比选中的报告">
+                <Button 
+                  icon={<SwapOutlined />} 
+                  onClick={compareReports}
+                  disabled={selectedReports.length !== 2}
+                  loading={isComparingReports}
+                >
+                  对比报告
+                </Button>
+              </Tooltip>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      <Card style={{ marginTop: 16 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={trendData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <ChartTooltip />
+            <Line type="monotone" dataKey="high" stroke="#cf1322" />
+            <Line type="monotone" dataKey="medium" stroke="#faad14" />
+            <Line type="monotone" dataKey="low" stroke="#3f8600" />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Table
+        columns={columns}
+        dataSource={reports}
+        rowKey="id"
+        loading={loading}
+        style={{ marginTop: 16 }}
+      />
 
       <Modal
         title="审核报告详情"
@@ -174,56 +274,15 @@ const AuditReport = () => {
         width={800}
       >
         {selectedReport && (
-          <>
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="报告ID">{selectedReport.id}</Descriptions.Item>
-              <Descriptions.Item label="审核任务">{selectedReport.taskName}</Descriptions.Item>
-              <Descriptions.Item label="审核日期">{selectedReport.auditDate}</Descriptions.Item>
-              <Descriptions.Item label="审核人">{selectedReport.auditor}</Descriptions.Item>
-              <Descriptions.Item label="状态">{selectedReport.status}</Descriptions.Item>
-              <Descriptions.Item label="发现问题数">{selectedReport.issuesFound}</Descriptions.Item>
-              <Descriptions.Item label="审核结果" span={2}>
-                <Paragraph>{selectedReport.summary}</Paragraph>
-              </Descriptions.Item>
-              <Descriptions.Item label="主要发现" span={2}>
-                <ul>
-                  {selectedReport.findings.map((finding, index) => (
-                    <li key={index}>{finding}</li>
-                  ))}
-                </ul>
-              </Descriptions.Item>
-              <Descriptions.Item label="建议" span={2}>
-                <ul>
-                  {selectedReport.recommendations.map((rec, index) => (
-                    <li key={index}>{rec}</li>
-                  ))}
-                </ul>
-              </Descriptions.Item>
-              <Descriptions.Item label="AI摘要" span={2}>
-                {aiSummary ? (
-                  <Paragraph>{aiSummary}</Paragraph>
-                ) : (
-                  <Button onClick={() => generateAISummary(selectedReport.id)}>
-                    生成AI摘要
-                  </Button>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
-            <div style={{ marginTop: 16 }}>
-              <Input.Search
-                placeholder="询问关于报告的问题"
-                enterButton="提问"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onSearch={handleQuestionSubmit}
-              />
-              {answer && (
-                <Paragraph style={{ marginTop: 8 }}>
-                  <strong>AI回答：</strong> {answer}
-                </Paragraph>
-              )}
-            </div>
-          </>
+          <div>
+            <p><strong>报告ID:</strong> {selectedReport.id}</p>
+            <p><strong>审核任务:</strong> {selectedReport.taskName}</p>
+            <p><strong>审核日期:</strong> {selectedReport.auditDate}</p>
+            <p><strong>审核人:</strong> {selectedReport.auditor}</p>
+            <p><strong>风险等级:</strong> {selectedReport.riskLevel || 'N/A'}</p>
+            <p><strong>AI分析:</strong> {selectedReport.aiAnalysis || 'N/A'}</p>
+            {/* 添加更多详细信息 */}
+          </div>
         )}
       </Modal>
     </Content>
