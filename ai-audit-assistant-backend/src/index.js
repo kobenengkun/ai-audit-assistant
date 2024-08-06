@@ -78,6 +78,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to AI Audit Assistant Backend' });
 });
 
+// Dashboard 路由
 app.get('/api/dashboard', (req, res) => {
   try {
     res.json({
@@ -119,29 +120,6 @@ app.get('/api/audit-plans', (req, res) => {
   res.json(auditPlans);
 });
 
-app.get('/api/audit-plans/list', (req, res) => {
-  try {
-    const planList = auditPlans.map(plan => ({
-      id: plan.id,
-      name: plan.name
-    }));
-    res.json(planList);
-  } catch (error) {
-    console.error('Error fetching audit plan list:', error);
-    res.status(500).json({ message: 'Error fetching audit plan list' });
-  }
-});
-
-app.get('/api/audit-plans/:id', (req, res) => {
-  const id = req.params.id;
-  const plan = findAuditPlanById(id);
-  if (plan) {
-    res.json(plan);
-  } else {
-    res.status(404).json({ message: 'Audit plan not found' });
-  }
-});
-
 app.post('/api/audit-plans', (req, res) => {
   try {
     const newPlan = req.body;
@@ -155,26 +133,25 @@ app.post('/api/audit-plans', (req, res) => {
   }
 });
 
+app.get('/api/audit-plans/:id', (req, res) => {
+  const id = req.params.id;
+  const plan = findAuditPlanById(id);
+  if (plan) {
+    res.json(plan);
+  } else {
+    res.status(404).json({ message: 'Audit plan not found' });
+  }
+});
+
 app.put('/api/audit-plans/:id', (req, res) => {
   try {
     const id = req.params.id;
     const updatedPlan = req.body;
-    console.log(`Attempting to update audit plan with ID: ${id}`);
-    console.log('Update data:', updatedPlan);
-
-    const existingPlan = findAuditPlanById(id);
-    if (!existingPlan) {
-      console.log(`Audit plan with ID ${id} not found`);
-      return res.status(404).json({ message: 'Audit plan not found' });
-    }
-
     const updated = updateAuditPlan(id, updatedPlan);
     if (updated) {
-      console.log('Audit plan updated successfully:', updated);
       res.json({ message: 'Audit plan updated successfully', plan: updated });
     } else {
-      console.log(`Failed to update audit plan with ID ${id}`);
-      res.status(500).json({ message: 'Failed to update audit plan' });
+      res.status(404).json({ message: 'Audit plan not found' });
     }
   } catch (error) {
     console.error('Error updating audit plan:', error);
@@ -185,18 +162,13 @@ app.put('/api/audit-plans/:id', (req, res) => {
 app.delete('/api/audit-plans/:id', (req, res) => {
   try {
     const id = req.params.id;
-    console.log(`Attempting to delete audit plan with ID: ${id}`);
-
-    const planToDelete = findAuditPlanById(id);
-    if (!planToDelete) {
-      console.log(`Audit plan with ID ${id} not found`);
-      return res.status(404).json({ message: 'Audit plan not found' });
+    const index = auditPlans.findIndex(plan => plan.id === id);
+    if (index !== -1) {
+      auditPlans.splice(index, 1);
+      res.json({ message: 'Audit plan deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Audit plan not found' });
     }
-
-    const index = auditPlans.indexOf(planToDelete);
-    auditPlans.splice(index, 1);
-    console.log(`Audit plan with ID ${id} deleted successfully`);
-    res.json({ message: 'Audit plan deleted successfully' });
   } catch (error) {
     console.error('Error deleting audit plan:', error);
     res.status(500).json({ message: 'Error deleting audit plan' });
@@ -220,7 +192,6 @@ app.post('/api/audit-tasks', (req, res) => {
     const newTask = req.body;
     newTask.id = auditTasks.length + 1;
     auditTasks.push(newTask);
-    console.log('New audit task:', newTask);
     res.status(201).json({ message: 'Audit task created successfully', task: newTask });
   } catch (error) {
     console.error('Error creating audit task:', error);
@@ -235,7 +206,6 @@ app.put('/api/audit-tasks/:id', (req, res) => {
     const index = auditTasks.findIndex(task => task.id === id);
     if (index !== -1) {
       auditTasks[index] = { ...auditTasks[index], ...updatedTask };
-      console.log('Updated audit task:', auditTasks[index]);
       res.json({ message: 'Audit task updated successfully', task: auditTasks[index] });
     } else {
       res.status(404).json({ message: 'Audit task not found' });
@@ -248,60 +218,70 @@ app.put('/api/audit-tasks/:id', (req, res) => {
 
 // 审核报告路由
 app.get('/api/audit-reports', (req, res) => {
-  try {
-    console.log('Fetching audit reports');
-    res.json(auditReports);
-  } catch (error) {
-    console.error('Error fetching audit reports:', error);
-    res.status(500).json({ message: 'Error fetching audit reports' });
-  }
+  res.json(auditReports);
 });
 
 // AI相关路由
-app.get('/api/ai-insights/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const insight = aiInsights.find(i => i.id === id);
-  if (insight) {
-    res.json(insight);
-  } else {
-    res.status(404).json({ message: 'AI insight not found' });
+app.post('/api/ai/prioritize-tasks', (req, res) => {
+  try {
+    const tasks = req.body.tasks;
+    const prioritizedTasks = tasks.sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
+      return 0;
+    }).map((task, index) => ({
+      ...task,
+      priority: index + 1
+    }));
+    res.json(prioritizedTasks);
+  } catch (error) {
+    console.error('Error in prioritize-tasks:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.post('/api/ai-assistant', (req, res) => {
-  const { query } = req.body;
-  // 这里应该集成实际的AI模型或服务
-  const response = `这是对 "${query}" 的AI助手响应。在实际实现中，这里应该调用AI模型或服务来生成回答。`;
-  res.json({ answer: response });
+app.post('/api/ai/analyze-document', (req, res) => {
+  try {
+    res.json({
+      suggestedName: 'Analyzed Document',
+      suggestedType: '内部审核',
+      keyFindings: ['重要发现1', '重要发现2'],
+      riskLevel: 'medium'
+    });
+  } catch (error) {
+    console.error('Error in analyze-document:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-app.get('/api/task-recommendations', (req, res) => {
-  // 这里应该根据用户角色、历史行为等生成个性化推荐
-  res.json(aiRecommendations);
+app.post('/api/ai/audit-guidance', (req, res) => {
+  try {
+    const task = req.body.task;
+    res.json({
+      guidance: `针对 ${task.name} 的审核指导：\n1. 重点关注X方面\n2. 注意Y的合规性\n3. 检查Z的完整性`,
+      suggestedSteps: ['步骤1', '步骤2', '步骤3'],
+      relevantRegulations: ['法规A', '法规B']
+    });
+  } catch (error) {
+    console.error('Error in audit-guidance:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-app.get('/api/anomalies', (req, res) => {
-  res.json(anomalies);
-});
-
-app.post('/api/natural-language-query', (req, res) => {
-  const { query } = req.body;
-  // 这里应该解析自然语言查询并返回相应的数据或图表
-  res.json({
-    type: 'bar_chart',
-    data: [
-      { name: 'Category A', value: 30 },
-      { name: 'Category B', value: 45 },
-      { name: 'Category C', value: 25 },
-    ],
-    explanation: `这是针对查询 "${query}" 生成的图表。在实际实现中，应该使用NLP技术来解析查询并生成相应的可视化。`
-  });
-});
-
-app.post('/api/translate', (req, res) => {
-  const { text, targetLanguage } = req.body;
-  // 这里应该调用实际的翻译服务
-  res.json({ translatedText: `[Translated to ${targetLanguage}] ${text}` });
+app.post('/api/ai/detect-anomalies', (req, res) => {
+  try {
+    const tasks = req.body.tasks;
+    const anomalies = tasks.reduce((acc, task) => {
+      if (task.status === 'pending' && new Date(task.endDate) < new Date()) {
+        acc[task.id] = 'Task overdue';
+      }
+      return acc;
+    }, {});
+    res.json(anomalies);
+  } catch (error) {
+    console.error('Error in detect-anomalies:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // 404 处理
@@ -325,4 +305,4 @@ app.listen(port, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-module.exports = app; // 为了测试目的导出 app
+module.exports = app;

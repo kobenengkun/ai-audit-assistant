@@ -1,7 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Layout, Table, Button, Space, message, Modal, Form, Input, DatePicker, Select, Spin } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { auditTasks, auditPlans } from '../services/api';
+import { 
+  Layout, Table, Button, Space, message, Modal, Form, 
+  Input, DatePicker, Select, Spin, Upload, Drawer, Tag 
+} from 'antd';
+import { 
+  PlusOutlined, EditOutlined, DeleteOutlined, 
+  UploadOutlined, BulbOutlined, WarningOutlined,
+  SortAscendingOutlined
+} from '@ant-design/icons';
+import { auditTasks, auditPlans, aiService } from '../services/api';
 import { handleError } from '../utils/errorHandler';
 import dayjs from 'dayjs';
 
@@ -16,20 +23,23 @@ const AuditExecution = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [auditPlanOptions, setAuditPlanOptions] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [fileList, setFileList] = useState([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [guidanceVisible, setGuidanceVisible] = useState(false);
+  const [currentGuidance, setCurrentGuidance] = useState('');
+  const [anomalies, setAnomalies] = useState({});
+  const [sortedData, setSortedData] = useState([]);
 
   const fetchAuditTasks = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('Fetching audit tasks...');
       const response = await auditTasks.fetchAll();
-      console.log('Fetched audit tasks:', response);
       const tasks = Array.isArray(response) ? response : [];
       const tasksWithPlanInfo = await Promise.all(
         tasks.map(async (task) => {
           if (task.auditPlanId) {
             try {
               const planResponse = await auditPlans.fetchById(task.auditPlanId);
-              console.log(`Fetched plan for task ${task.id}:`, planResponse);
               return {
                 ...task,
                 planName: planResponse.name,
@@ -58,13 +68,9 @@ const AuditExecution = () => {
   const fetchAuditPlans = useCallback(async () => {
     setLoadingPlans(true);
     try {
-      console.log('Fetching audit plans...');
       const response = await auditPlans.fetchAll();
-      console.log('Fetched audit plans:', response);
       const plans = Array.isArray(response) ? response : [];
-      console.log('Processed plans:', plans);
       setAuditPlanOptions(plans.map(plan => ({ value: plan.id, label: plan.name })));
-      console.log('Set audit plan options:', plans.map(plan => ({ value: plan.id, label: plan.name })));
     } catch (error) {
       console.error('Failed to fetch audit plans:', error);
       message.error('加载审核计划失败，请稍后重试');
@@ -80,7 +86,7 @@ const AuditExecution = () => {
 
   const showModal = useCallback((record = null) => {
     setEditingRecord(record);
-    fetchAuditPlans();  // 每次打开模态框时重新获取审核计划
+    fetchAuditPlans();
     if (record) {
       form.setFieldsValue({
         ...record,
@@ -104,8 +110,6 @@ const AuditExecution = () => {
         endDate: values.dateRange[1].format('YYYY-MM-DD'),
         status: values.status
       };
-
-      console.log('Submitting task data:', taskData);
 
       if (editingRecord) {
         await auditTasks.update(editingRecord.id, taskData);
@@ -136,13 +140,103 @@ const AuditExecution = () => {
     }
   }, [fetchAuditTasks]);
 
+  const handleAIPrioritize = async () => {
+    try {
+      setLoading(true);
+      const prioritizedTasks = await aiService.prioritizeTasks(data);
+      setSortedData(prioritizedTasks);
+      message.success('任务已按AI建议优先级排序');
+    } catch (error) {
+      console.error('Error prioritizing tasks:', error);
+      handleError(error);
+      message.error('AI排序失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (info) => {
+    const { status } = info.file;
+    if (status === 'done') {
+      setFileList([info.file]);
+      setAnalyzing(true);
+      try {
+        const analysis = await aiService.analyzeDocument(info.file);
+        form.setFieldsValue({
+          name: analysis.suggestedName,
+          type: analysis.suggestedType,
+          // ... 其他字段
+        });
+        message.success(`文件 ${info.file.name} 分析成功`);
+      } catch (error) {
+        console.error('Error analyzing document:', error);
+        handleError(error);
+        message.error('文件分析失败，请稍后重试');
+      } finally {
+        setAnalyzing(false);
+      }
+    } else if (status === 'error') {
+      message.error(`${info.file.name} 文件上传失败`);
+    }
+  };
+
+  const showGuidance = async (record) => {
+    setGuidanceVisible(true);
+    try {
+      const guidance = await aiService.getAuditGuidance(record);
+      setCurrentGuidance(guidance);
+    } catch (error) {
+      console.error('Error fetching guidance:', error);
+      handleError(error);
+      message.error('获取AI指导失败，请稍后重试');
+    }
+  };
+
+  const detectAnomalies = async () => {
+    try {
+      const detectedAnomalies = await aiService.detectAnomalies(data);
+      setAnomalies(detectedAnomalies);
+      message.info('异常检测完成');
+    } catch (error) {
+      console.error('Error detecting anomalies:', error);
+      handleError(error);
+      message.error('异常检测失败，请稍后重试');
+    }
+  };
+
+  useEffect(() => {
+    if (data.length > 0) {
+      detectAnomalies();
+    }
+  }, [data]);
+
   const columns = [
+    { 
+      title: '优先级', 
+      dataIndex: 'priority', 
+      key: 'priority',
+      render: (priority) => priority ? `P${priority}` : '-'
+    },
     { title: '任务名称', dataIndex: 'name', key: 'name' },
     { title: '关联审核计划', dataIndex: 'planName', key: 'planName' },
     { title: '任务类型', dataIndex: 'type', key: 'type' },
     { title: '开始日期', dataIndex: 'startDate', key: 'startDate' },
     { title: '结束日期', dataIndex: 'endDate', key: 'endDate' },
-    { title: '状态', dataIndex: 'status', key: 'status' },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status, record) => (
+        <Space>
+          {status}
+          {anomalies[record.id] && (
+            <Tag color="red" icon={<WarningOutlined />}>
+              异常
+            </Tag>
+          )}
+        </Space>
+      ),
+    },
     {
       title: '操作',
       key: 'action',
@@ -150,6 +244,7 @@ const AuditExecution = () => {
         <Space size="middle">
           <Button icon={<EditOutlined />} onClick={() => showModal(record)}>编辑</Button>
           <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} danger>删除</Button>
+          <Button icon={<BulbOutlined />} onClick={() => showGuidance(record)}>AI指导</Button>
         </Space>
       ),
     },
@@ -158,12 +253,20 @@ const AuditExecution = () => {
   return (
     <Content style={{ padding: '20px' }}>
       <h1>审核执行</h1>
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()} style={{ marginBottom: 16 }}>
-        创建新审核任务
-      </Button>
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
+          创建新审核任务
+        </Button>
+        <Button icon={<SortAscendingOutlined />} onClick={handleAIPrioritize}>
+          AI优先级排序
+        </Button>
+        <Button icon={<WarningOutlined />} onClick={detectAnomalies}>
+          检测异常
+        </Button>
+      </Space>
       <Table 
         columns={columns} 
-        dataSource={data} 
+        dataSource={sortedData.length > 0 ? sortedData : data} 
         rowKey="id" 
         loading={loading}
         locale={{
@@ -176,9 +279,19 @@ const AuditExecution = () => {
         open={isModalVisible}
         onOk={handleOk}
         onCancel={() => setIsModalVisible(false)}
-        confirmLoading={loading}
+        confirmLoading={loading || analyzing}
       >
         <Form form={form} layout="vertical">
+          <Form.Item name="document" label="上传审核文档">
+            <Upload
+              accept=".pdf,.doc,.docx"
+              beforeUpload={() => false}
+              onChange={handleFileUpload}
+              fileList={fileList}
+            >
+              <Button icon={<UploadOutlined />}>选择文件</Button>
+            </Upload>
+          </Form.Item>
           <Form.Item name="name" label="任务名称" rules={[{ required: true, message: '请输入任务名称' }]}>
             <Input />
           </Form.Item>
@@ -213,6 +326,15 @@ const AuditExecution = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      <Drawer
+        title="AI审核指导"
+        placement="right"
+        onClose={() => setGuidanceVisible(false)}
+        open={guidanceVisible}
+      >
+        <p>{currentGuidance}</p>
+      </Drawer>
     </Content>
   );
 };

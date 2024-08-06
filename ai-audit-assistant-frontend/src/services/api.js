@@ -112,4 +112,48 @@ export const auditImprovements = {
     .catch(handleApiError),
 };
 
+// 新增 aiService 对象
+export const aiService = {
+  prioritizeTasks: (tasks) => {
+    console.log('Prioritizing tasks with AI...');
+    return api.post('/ai/prioritize-tasks', { tasks })
+      .then(response => {
+        console.log('Tasks prioritized successfully:', response.data);
+        return response.data;
+      })
+      .catch(handleApiError);
+  },
+  analyzeDocument: (file) => {
+    console.log('Analyzing document with AI...');
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ai/analyze-document', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+      .then(response => {
+        console.log('Document analyzed successfully:', response.data);
+        return response.data;
+      })
+      .catch(handleApiError);
+  },
+  getAuditGuidance: (task) => {
+    console.log('Getting AI audit guidance...');
+    return api.post('/ai/audit-guidance', { task })
+      .then(response => {
+        console.log('Audit guidance received:', response.data);
+        return response.data;
+      })
+      .catch(handleApiError);
+  },
+  detectAnomalies: (tasks) => {
+    console.log('Detecting anomalies with AI...');
+    return api.post('/ai/detect-anomalies', { tasks })
+      .then(response => {
+        console.log('Anomalies detected:', response.data);
+        return response.data;
+      })
+      .catch(handleApiError);
+  }
+};
+
 export default api;
