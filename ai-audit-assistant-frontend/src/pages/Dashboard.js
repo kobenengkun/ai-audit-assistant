@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, theme, Table, List, Input } from 'antd';
-import { PieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DownloadOutlined, ReloadOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, theme, Table, List, Input, Modal, Avatar, Tooltip } from 'antd';
+import { PieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { DownloadOutlined, ReloadOutlined, PlusOutlined, RobotOutlined, SendOutlined, UserOutlined, WarningOutlined } from '@ant-design/icons';
 import { dashboard } from '../services/api';
 
 const { Content } = Layout;
@@ -14,19 +14,22 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [aiInsights, setAiInsights] = useState(null);
+  const [aiInsights, setAiInsights] = useState([]);
   const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const [anomalies, setAnomalies] = useState([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await dashboard.fetchData(dateRange[0], dateRange[1]);
       setData(response);
-      // 假设API现在返回AI生成的见解和建议
       setAiInsights(response.aiInsights);
       setAiRecommendations(response.aiRecommendations);
+      setAnomalies(response.anomalies);
     } catch (err) {
-      message.error('Failed to fetch dashboard data');
+      message.error('获取仪表板数据失败');
     } finally {
       setLoading(false);
     }
@@ -45,22 +48,27 @@ const Dashboard = () => {
   };
 
   const exportData = () => {
-    message.info('Exporting data...');
+    message.info('导出数据中...');
     // 实现导出逻辑
   };
 
-  const handleAiAssistant = async (query) => {
+  const handleAiAssistant = async () => {
+    if (!inputValue.trim()) return;
+
+    const userMessage = { type: 'user', content: inputValue };
+    setChatMessages([...chatMessages, userMessage]);
+    setInputValue('');
+
     try {
-      // 假设有一个API端点来处理AI助手查询
-      const response = await dashboard.queryAiAssistant(query);
-      message.info(response.answer);
+      const response = await dashboard.queryAiAssistant(inputValue);
+      setChatMessages((prevMessages) => [...prevMessages, { type: 'ai', content: response.answer }]);
     } catch (err) {
       message.error('AI助手无法处理您的请求');
     }
   };
 
   if (loading) return <Spin size="large" />;
-  if (!data) return <div>No data available</div>;
+  if (!data) return <div>没有可用数据</div>;
 
   return (
     <ConfigProvider theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm }}>
@@ -72,8 +80,8 @@ const Dashboard = () => {
           <Col>
             <RangePicker onChange={handleDateRangeChange} style={{ marginRight: 16 }} />
             <Switch
-              checkedChildren="Dark"
-              unCheckedChildren="Light"
+              checkedChildren="暗色"
+              unCheckedChildren="亮色"
               onChange={toggleTheme}
               checked={isDarkMode}
               style={{ marginRight: 16 }}
@@ -89,19 +97,13 @@ const Dashboard = () => {
 
         <Row gutter={[16, 16]}>
           <Col span={8}>
-            <Card>
-              <Statistic title="总审核任务" value={data.totalTasks} />
-            </Card>
+            <Statistic title="总审核任务" value={data.totalTasks} />
           </Col>
           <Col span={8}>
-            <Card>
-              <Statistic title="待处理任务" value={data.pendingTasks} valueStyle={{ color: '#ff4d4f' }} />
-            </Card>
+            <Statistic title="待处理任务" value={data.pendingTasks} valueStyle={{ color: '#ff4d4f' }} />
           </Col>
           <Col span={8}>
-            <Card>
-              <Statistic title="本月完成任务" value={data.completedTasksThisMonth} valueStyle={{ color: '#52c41a' }} />
-            </Card>
+            <Statistic title="本月完成任务" value={data.completedTasksThisMonth} valueStyle={{ color: '#52c41a' }} />
           </Col>
         </Row>
 
@@ -124,7 +126,7 @@ const Dashboard = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -137,7 +139,7 @@ const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip />
+                  <RechartsTooltip />
                   <Legend />
                   <Line type="monotone" dataKey="completed" stroke="#8884d8" />
                   <Line type="monotone" dataKey="predicted" stroke="#82ca9d" strokeDasharray="3 3" />
@@ -155,7 +157,7 @@ const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
+                  <RechartsTooltip />
                   <Legend />
                   <Bar dataKey="value" fill="#82ca9d" />
                 </BarChart>
@@ -163,8 +165,18 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col span={12}>
-            <Card title="AI洞察">
-              <Paragraph>{aiInsights}</Paragraph>
+            <Card title="AI洞察" extra={<Button type="link">查看所有洞察</Button>}>
+              <List
+                dataSource={aiInsights}
+                renderItem={(item) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={item.title}
+                      description={<Paragraph ellipsis={{ rows: 2 }}>{item.summary}</Paragraph>}
+                    />
+                  </List.Item>
+                )}
+              />
             </Card>
           </Col>
         </Row>
@@ -201,12 +213,51 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col span={12}>
-            <Card title="AI助手">
-              <Search
-                placeholder="询问AI助手..."
-                enterButton={<RobotOutlined />}
-                size="large"
-                onSearch={handleAiAssistant}
+            <Card title="AI助手" bodyStyle={{ height: 300, overflowY: 'auto' }}>
+              <List
+                dataSource={chatMessages}
+                renderItem={(item) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      avatar={
+                        <Avatar icon={item.type === 'user' ? <UserOutlined /> : <RobotOutlined />} />
+                      }
+                      title={item.type === 'user' ? '你' : 'AI助手'}
+                      description={item.content}
+                    />
+                  </List.Item>
+                )}
+              />
+              <div style={{ position: 'sticky', bottom: 0, backgroundColor: '#fff', padding: '10px 0' }}>
+                <Input
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onPressEnter={handleAiAssistant}
+                  suffix={
+                    <Button type="primary" icon={<SendOutlined />} onClick={handleAiAssistant}>
+                      发送
+                    </Button>
+                  }
+                  placeholder="询问AI助手..."
+                />
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row style={{ marginTop: 24 }}>
+          <Col span={24}>
+            <Card title="异常检测">
+              <List
+                dataSource={anomalies}
+                renderItem={(item) => (
+                  <List.Item>
+                    <Tooltip title={item.description}>
+                      <WarningOutlined style={{ color: 'red', marginRight: 8 }} />
+                      <Text>{item.title}</Text>
+                    </Tooltip>
+                  </List.Item>
+                )}
               />
             </Card>
           </Col>
@@ -228,13 +279,13 @@ const Dashboard = () => {
 };
 
 const Statistic = ({ title, value, valueStyle, suffix }) => (
-  <div>
+  <Card>
     <Text>{title}</Text>
     <Title level={3} style={valueStyle}>
       {value}
       {suffix && <small style={{ fontSize: '65%', marginLeft: 8 }}>{suffix}</small>}
     </Title>
-  </div>
+  </Card>
 );
 
 export default Dashboard;
