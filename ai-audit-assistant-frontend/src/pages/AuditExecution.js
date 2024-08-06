@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Layout, Table, Button, Space, message, Modal, Form, 
-  Input, DatePicker, Select, Spin, Upload, Drawer, Tag 
+  Input, DatePicker, Select, Spin, Upload, Drawer, Tag,
+  Row, Col, Card, Statistic, Tooltip, Progress, Tabs
 } from 'antd';
 import { 
   PlusOutlined, EditOutlined, DeleteOutlined, 
   UploadOutlined, BulbOutlined, WarningOutlined,
-  SortAscendingOutlined
+  SortAscendingOutlined, SearchOutlined, DownloadOutlined
 } from '@ant-design/icons';
 import { auditTasks, auditPlans, aiService } from '../services/api';
 import { handleError } from '../utils/errorHandler';
@@ -14,6 +15,7 @@ import dayjs from 'dayjs';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
+const { TabPane } = Tabs;
 
 const AuditExecution = () => {
   const [form] = Form.useForm();
@@ -29,6 +31,14 @@ const AuditExecution = () => {
   const [currentGuidance, setCurrentGuidance] = useState('');
   const [anomalies, setAnomalies] = useState({});
   const [sortedData, setSortedData] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [filteredData, setFilteredData] = useState([]);
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    inProgress: 0,
+    completed: 0,
+    planned: 0
+  });
 
   const fetchAuditTasks = useCallback(async () => {
     setLoading(true);
@@ -56,6 +66,8 @@ const AuditExecution = () => {
         })
       );
       setData(tasksWithPlanInfo);
+      setFilteredData(tasksWithPlanInfo);
+      updateStatistics(tasksWithPlanInfo);
     } catch (error) {
       console.error('Error fetching audit tasks:', error);
       handleError(error);
@@ -63,6 +75,17 @@ const AuditExecution = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const updateStatistics = useCallback((tasks) => {
+    const stats = tasks.reduce((acc, task) => {
+      acc.total++;
+      if (task.status === '进行中') acc.inProgress++;
+      else if (task.status === '已完成') acc.completed++;
+      else if (task.status === '计划中') acc.planned++;
+      return acc;
+    }, { total: 0, inProgress: 0, completed: 0, planned: 0 });
+    setStatistics(stats);
   }, []);
 
   const fetchAuditPlans = useCallback(async () => {
@@ -204,18 +227,34 @@ const AuditExecution = () => {
     }
   };
 
-  useEffect(() => {
-    if (data.length > 0) {
-      detectAnomalies();
-    }
+  const handleSearch = useCallback((value) => {
+    setSearchText(value);
+    const filtered = data.filter(item => 
+      item.name.toLowerCase().includes(value.toLowerCase()) ||
+      item.id.toString().includes(value)
+    );
+    setFilteredData(filtered);
   }, [data]);
+
+  const getPriorityColor = (priority) => {
+    switch(priority) {
+      case 'P1': return 'red';
+      case 'P2': return 'orange';
+      case 'P3': return 'yellow';
+      default: return 'green';
+    }
+  };
 
   const columns = [
     { 
       title: '优先级', 
       dataIndex: 'priority', 
       key: 'priority',
-      render: (priority) => priority ? `P${priority}` : '-'
+      render: (priority) => (
+        <Tag color={getPriorityColor(priority)}>
+          {priority || 'P4'}
+        </Tag>
+      )
     },
     { title: '任务名称', dataIndex: 'name', key: 'name' },
     { title: '关联审核计划', dataIndex: 'planName', key: 'planName' },
@@ -228,13 +267,26 @@ const AuditExecution = () => {
       key: 'status',
       render: (status, record) => (
         <Space>
-          {status}
+          <Tag color={status === '进行中' ? 'blue' : status === '已完成' ? 'green' : 'orange'}>
+            {status}
+          </Tag>
           {anomalies[record.id] && (
-            <Tag color="red" icon={<WarningOutlined />}>
-              异常
-            </Tag>
+            <Tooltip title="检测到异常">
+              <Tag color="red" icon={<WarningOutlined />}>
+                异常
+              </Tag>
+            </Tooltip>
           )}
         </Space>
+      ),
+    },
+    {
+      title: '进度',
+      key: 'progress',
+      render: (_, record) => (
+        <Tooltip title={`${record.progress || 0}%`}>
+          <Progress percent={record.progress || 0} size="small" />
+        </Tooltip>
       ),
     },
     {
@@ -244,7 +296,9 @@ const AuditExecution = () => {
         <Space size="middle">
           <Button icon={<EditOutlined />} onClick={() => showModal(record)}>编辑</Button>
           <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} danger>删除</Button>
-          <Button icon={<BulbOutlined />} onClick={() => showGuidance(record)}>AI指导</Button>
+          <Tooltip title="查看AI指导">
+            <Button icon={<BulbOutlined />} onClick={() => showGuidance(record)}>AI指导</Button>
+          </Tooltip>
         </Space>
       ),
     },
@@ -253,6 +307,30 @@ const AuditExecution = () => {
   return (
     <Content style={{ padding: '20px' }}>
       <h1>审核执行</h1>
+      
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card>
+            <Statistic title="总任务数" value={statistics.total} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="进行中任务" value={statistics.inProgress} valueStyle={{ color: '#1890ff' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="已完成任务" value={statistics.completed} valueStyle={{ color: '#3f8600' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="计划中任务" value={statistics.planned} valueStyle={{ color: '#faad14' }} />
+          </Card>
+        </Col>
+      </Row>
+
       <Space style={{ marginBottom: 16 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
           创建新审核任务
@@ -263,80 +341,107 @@ const AuditExecution = () => {
         <Button icon={<WarningOutlined />} onClick={detectAnomalies}>
           检测异常
         </Button>
+        <Button icon={<DownloadOutlined />} onClick={() => message.info('导出功能即将上线')}>
+          导出任务列表
+        </Button>
+        <Input
+          placeholder="搜索任务"
+          prefix={<SearchOutlined />}
+          style={{ width: 200 }}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
       </Space>
-      <Table 
-        columns={columns} 
-        dataSource={sortedData.length > 0 ? sortedData : data} 
-        rowKey="id" 
-        loading={loading}
-        locale={{
-          emptyText: loading ? <Spin /> : '暂无数据'
-        }}
+
+      <Tabs defaultActiveKey="all">
+        <TabPane tab="所有任务" key="all">
+          <Table 
+            columns={columns} 
+            dataSource={filteredData} 
+            rowKey="id" 
+            loading={loading}
+          />
+        </TabPane>
+        <TabPane tab="进行中" key="inProgress">
+          <Table 
+            columns={columns} 
+            dataSource={filteredData.filter(task => task.status === '进行中')} 
+            rowKey="id" 
+          />
+        </TabPane>
+        <TabPane tab="已完成" key="completed">
+          <Table 
+            columns={columns} 
+            dataSource={filteredData.filter(task => task.status === '已完成')} 
+            rowKey="id" 
+          />
+        </TabPane>
+        </Tabs>
+
+<Modal
+  title={editingRecord ? "编辑审核任务" : "创建新审核任务"}
+  open={isModalVisible}
+  onOk={handleOk}
+  onCancel={() => setIsModalVisible(false)}
+  confirmLoading={loading || analyzing}
+>
+  <Form form={form} layout="vertical">
+    <Form.Item name="document" label="上传审核文档">
+      <Upload
+        accept=".pdf,.doc,.docx"
+        beforeUpload={() => false}
+        onChange={handleFileUpload}
+        fileList={fileList}
+      >
+        <Button icon={<UploadOutlined />}>选择文件</Button>
+      </Upload>
+    </Form.Item>
+    <Form.Item name="name" label="任务名称" rules={[{ required: true, message: '请输入任务名称' }]}>
+      <Input />
+    </Form.Item>
+    <Form.Item name="auditPlanId" label="关联审核计划" rules={[{ required: true, message: '请选择关联审核计划' }]}>
+      <Select 
+        options={auditPlanOptions} 
+        loading={loadingPlans}
+        notFoundContent={loadingPlans ? <Spin size="small" /> : '暂无数据'}
       />
+    </Form.Item>
+    <Form.Item name="type" label="任务类型" rules={[{ required: true, message: '请选择任务类型' }]}>
+      <Select>
+        <Select.Option value="内部审核">内部审核</Select.Option>
+        <Select.Option value="外部审核">外部审核</Select.Option>
+        <Select.Option value="供应商审核">供应商审核</Select.Option>
+      </Select>
+    </Form.Item>
+    <Form.Item 
+      name="dateRange" 
+      label="任务日期范围" 
+      rules={[{ required: true, message: '请选择日期范围' }]}
+    >
+      <RangePicker style={{ width: '100%' }} />
+    </Form.Item>
+    <Form.Item name="status" label="状态" rules={[{ required: true, message: '请选择状态' }]}>
+      <Select>
+        <Select.Option value="计划中">计划中</Select.Option>
+        <Select.Option value="进行中">进行中</Select.Option>
+        <Select.Option value="已完成">已完成</Select.Option>
+        <Select.Option value="已取消">已取消</Select.Option>
+      </Select>
+    </Form.Item>
+  </Form>
+</Modal>
 
-      <Modal
-        title={editingRecord ? "编辑审核任务" : "创建新审核任务"}
-        open={isModalVisible}
-        onOk={handleOk}
-        onCancel={() => setIsModalVisible(false)}
-        confirmLoading={loading || analyzing}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="document" label="上传审核文档">
-            <Upload
-              accept=".pdf,.doc,.docx"
-              beforeUpload={() => false}
-              onChange={handleFileUpload}
-              fileList={fileList}
-            >
-              <Button icon={<UploadOutlined />}>选择文件</Button>
-            </Upload>
-          </Form.Item>
-          <Form.Item name="name" label="任务名称" rules={[{ required: true, message: '请输入任务名称' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="auditPlanId" label="关联审核计划" rules={[{ required: true, message: '请选择关联审核计划' }]}>
-            <Select 
-              options={auditPlanOptions} 
-              loading={loadingPlans}
-              notFoundContent={loadingPlans ? <Spin size="small" /> : '暂无数据'}
-            />
-          </Form.Item>
-          <Form.Item name="type" label="任务类型" rules={[{ required: true, message: '请选择任务类型' }]}>
-            <Select>
-              <Select.Option value="内部审核">内部审核</Select.Option>
-              <Select.Option value="外部审核">外部审核</Select.Option>
-              <Select.Option value="供应商审核">供应商审核</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item 
-            name="dateRange" 
-            label="任务日期范围" 
-            rules={[{ required: true, message: '请选择日期范围' }]}
-          >
-            <RangePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="status" label="状态" rules={[{ required: true, message: '请选择状态' }]}>
-            <Select>
-              <Select.Option value="计划中">计划中</Select.Option>
-              <Select.Option value="进行中">进行中</Select.Option>
-              <Select.Option value="已完成">已完成</Select.Option>
-              <Select.Option value="已取消">已取消</Select.Option>
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Drawer
-        title="AI审核指导"
-        placement="right"
-        onClose={() => setGuidanceVisible(false)}
-        open={guidanceVisible}
-      >
-        <p>{currentGuidance}</p>
-      </Drawer>
-    </Content>
-  );
+<Drawer
+  title="AI审核指导"
+  placement="right"
+  onClose={() => setGuidanceVisible(false)}
+  open={guidanceVisible}
+  width={400}
+>
+  <p>{currentGuidance}</p>
+</Drawer>
+</Content>
+);
 };
 
 export default AuditExecution;
+      

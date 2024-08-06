@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Table, Input, Button, Space, Tag, Modal, Typography, Card, Row, Col, Statistic, Tooltip, message } from 'antd';
-import { EyeOutlined, DownloadOutlined, SwapOutlined, SearchOutlined, SyncOutlined, RobotOutlined } from '@ant-design/icons';
-import { LineChart, XAxis, YAxis, CartesianGrid, Line, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
+import { Layout, Table, Input, Button, Space, Tag, Modal, Typography, Card, Row, Col, Statistic, Tooltip, message, Form, DatePicker, Select, Spin } from 'antd';
+import { EyeOutlined, DownloadOutlined, SwapOutlined, SearchOutlined, SyncOutlined, RobotOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { LineChart, XAxis, YAxis, CartesianGrid, Line, Tooltip as ChartTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { auditReports, aiService } from '../services/api';
 import debounce from 'lodash/debounce';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Search } = Input;
+const { RangePicker } = DatePicker;
 
 const AuditReport = () => {
   const [reports, setReports] = useState([]);
@@ -18,6 +19,8 @@ const AuditReport = () => {
   const [selectedReports, setSelectedReports] = useState([]);
   const [isComparingReports, setIsComparingReports] = useState(false);
   const [statistics, setStatistics] = useState({ total: 0, high: 0, medium: 0, low: 0 });
+  const [advancedSearch, setAdvancedSearch] = useState(false);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchReports();
@@ -31,7 +34,7 @@ const AuditReport = () => {
       setReports(data);
       updateStatistics(data);
     } catch (error) {
-      message.error('Failed to fetch audit reports');
+      message.error('获取审核报告失败');
     } finally {
       setLoading(false);
     }
@@ -53,7 +56,7 @@ const AuditReport = () => {
       const data = await aiService.getRiskTrend();
       setTrendData(data);
     } catch (error) {
-      message.error('Failed to fetch risk trend data');
+      message.error('获取风险趋势数据失败');
     }
   };
 
@@ -64,11 +67,28 @@ const AuditReport = () => {
       setReports(results);
       updateStatistics(results);
     } catch (error) {
-      message.error('Failed to perform smart search');
+      message.error('智能搜索失败');
     } finally {
       setLoading(false);
     }
   }, 300), []);
+
+  const handleAdvancedSearch = async (values) => {
+    setLoading(true);
+    try {
+      const results = await aiService.advancedSearch(values);
+      setReports(results);
+      updateStatistics(results);
+    } catch (error) {
+      message.error('高级搜索失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleAdvancedSearch = () => {
+    setAdvancedSearch(!advancedSearch);
+  };
 
   const showReportDetails = (report) => {
     setSelectedReport(report);
@@ -80,8 +100,8 @@ const AuditReport = () => {
   };
 
   const downloadReport = (reportId) => {
-    message.info(`Downloading report ${reportId}`);
-    // Implement actual download logic
+    message.info(`正在下载报告 ${reportId}`);
+    // 实现实际的下载逻辑
   };
 
   const toggleReportSelection = (report) => {
@@ -94,16 +114,16 @@ const AuditReport = () => {
 
   const compareReports = async () => {
     if (selectedReports.length !== 2) {
-      message.error('Please select exactly two reports to compare');
+      message.error('请选择两个报告进行比较');
       return;
     }
     setIsComparingReports(true);
     try {
       const comparisonResult = await aiService.compareReports(selectedReports);
-      // Display comparison result in a new modal or component
-      message.success('Reports compared successfully');
+      // 在新的模态框或组件中显示比较结果
+      message.success('报告比较成功');
     } catch (error) {
-      message.error('Failed to compare reports');
+      message.error('报告比较失败');
     } finally {
       setIsComparingReports(false);
     }
@@ -189,7 +209,13 @@ const AuditReport = () => {
       <Row gutter={[16, 16]}>
         <Col span={6}>
           <Card>
-            <Statistic title="总报告数" value={statistics.total} />
+            <Statistic 
+              title="总报告数" 
+              value={statistics.total} 
+              prefix={<ArrowUpOutlined />}
+              valueStyle={{ color: '#3f8600' }}
+              suffix={<small style={{fontSize: '12px'}}>+5%</small>}
+            />
           </Card>
         </Col>
         <Col span={6}>
@@ -211,18 +237,42 @@ const AuditReport = () => {
 
       <Card style={{ marginTop: 16 }}>
         <Row gutter={16} align="middle">
-          <Col span={12}>
-            <Search
-              placeholder="智能搜索报告"
-              allowClear
-              enterButton="搜索"
-              size="large"
-              onSearch={handleSearch}
-              style={{ width: '100%' }}
-            />
+          <Col span={advancedSearch ? 24 : 12}>
+            {advancedSearch ? (
+              <Form form={form} layout="inline" onFinish={handleAdvancedSearch}>
+                <Form.Item name="keyword">
+                  <Input placeholder="关键词" />
+                </Form.Item>
+                <Form.Item name="dateRange">
+                  <RangePicker />
+                </Form.Item>
+                <Form.Item name="riskLevel">
+                  <Select placeholder="风险等级">
+                    <Select.Option value="high">高</Select.Option>
+                    <Select.Option value="medium">中</Select.Option>
+                    <Select.Option value="low">低</Select.Option>
+                  </Select>
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit">搜索</Button>
+                </Form.Item>
+              </Form>
+            ) : (
+              <Search
+                placeholder="智能搜索报告"
+                allowClear
+                enterButton="搜索"
+                size="large"
+                onSearch={handleSearch}
+                style={{ width: '100%' }}
+              />
+            )}
           </Col>
-          <Col span={12}>
+          <Col span={advancedSearch ? 24 : 12}>
             <Space>
+              <Button onClick={toggleAdvancedSearch}>
+                {advancedSearch ? '简单搜索' : '高级搜索'}
+              </Button>
               <Tooltip title="刷新数据">
                 <Button icon={<SyncOutlined />} onClick={fetchReports}>刷新</Button>
               </Tooltip>
@@ -245,17 +295,20 @@ const AuditReport = () => {
       </Card>
 
       <Card style={{ marginTop: 16 }}>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <ChartTooltip />
-            <Line type="monotone" dataKey="high" stroke="#cf1322" />
-            <Line type="monotone" dataKey="medium" stroke="#faad14" />
-            <Line type="monotone" dataKey="low" stroke="#3f8600" />
-          </LineChart>
-        </ResponsiveContainer>
+        <Spin spinning={loading}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <ChartTooltip />
+              <Legend />
+              <Line type="monotone" dataKey="high" stroke="#cf1322" />
+              <Line type="monotone" dataKey="medium" stroke="#faad14" />
+              <Line type="monotone" dataKey="low" stroke="#3f8600" />
+            </LineChart>
+          </ResponsiveContainer>
+        </Spin>
       </Card>
 
       <Table
@@ -281,7 +334,7 @@ const AuditReport = () => {
             <p><strong>审核人:</strong> {selectedReport.auditor}</p>
             <p><strong>风险等级:</strong> {selectedReport.riskLevel || 'N/A'}</p>
             <p><strong>AI分析:</strong> {selectedReport.aiAnalysis || 'N/A'}</p>
-            {/* 添加更多详细信息 */}
+            {/* 可以添加更多详细信息 */}
           </div>
         )}
       </Modal>
