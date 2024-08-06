@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const aiRoutes = require('./routes/aiRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,7 @@ app.options('*', cors());
 
 // 中间件
 app.use(express.json());
+app.use('/api/ai', aiRoutes);
 
 // 日志中间件
 app.use((req, res, next) => {

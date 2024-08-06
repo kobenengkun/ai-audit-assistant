@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Table, Input, Button, Space, Tag, Modal, Typography, Descriptions, Row, Col, Card, Spin, message } from 'antd';
-import { SearchOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
-import { auditReports } from '../services/api'; // 假设您有一个 API 服务
+import { SearchOutlined, EyeOutlined, DownloadOutlined, BarChartOutlined } from '@ant-design/icons';
+import { auditReports, aiService } from '../services/api';
 
 const { Content } = Layout;
 const { Title, Paragraph } = Typography;
@@ -11,10 +11,20 @@ const AuditReport = () => {
   const [loading, setLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [riskLevels, setRiskLevels] = useState({});
 
   useEffect(() => {
     fetchReports();
   }, []);
+
+  useEffect(() => {
+    if (reports.length > 0) {
+      reports.forEach(report => detectAnomalies(report.id));
+    }
+  }, [reports]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -25,6 +35,33 @@ const AuditReport = () => {
       message.error('Failed to fetch audit reports');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAISummary = async (reportId) => {
+    try {
+      const summary = await aiService.generateReportSummary(reportId);
+      setAiSummary(summary);
+    } catch (error) {
+      message.error('Failed to generate AI summary');
+    }
+  };
+
+  const handleQuestionSubmit = async () => {
+    try {
+      const response = await aiService.askQuestion(selectedReport.id, question);
+      setAnswer(response.answer);
+    } catch (error) {
+      message.error('Failed to get AI response');
+    }
+  };
+
+  const detectAnomalies = async (reportId) => {
+    try {
+      const result = await aiService.detectAnomalies(reportId);
+      setRiskLevels(prevLevels => ({...prevLevels, [reportId]: result.riskLevel}));
+    } catch (error) {
+      console.error('Failed to detect anomalies:', error);
     }
   };
 
@@ -60,6 +97,16 @@ const AuditReport = () => {
       ),
     },
     {
+      title: '风险等级',
+      dataIndex: 'id',
+      key: 'riskLevel',
+      render: (id) => (
+        <Tag color={riskLevels[id] === 'high' ? 'red' : riskLevels[id] === 'medium' ? 'orange' : 'green'}>
+          {riskLevels[id] || 'Analyzing'}
+        </Tag>
+      ),
+    },
+    {
       title: '操作',
       key: 'action',
       render: (_, record) => (
@@ -78,6 +125,8 @@ const AuditReport = () => {
   const showReportDetails = (report) => {
     setSelectedReport(report);
     setIsModalVisible(true);
+    setAiSummary('');
+    setAnswer('');
   };
 
   const handleModalClose = () => {
@@ -85,7 +134,6 @@ const AuditReport = () => {
   };
 
   const downloadReport = (reportId) => {
-    // 实现下载逻辑
     message.info(`Downloading report ${reportId}`);
   };
 
@@ -103,6 +151,9 @@ const AuditReport = () => {
               />
               <Button type="primary" onClick={fetchReports}>
                 刷新
+              </Button>
+              <Button icon={<BarChartOutlined />} onClick={() => message.info('Trend analysis feature coming soon')}>
+                趋势分析
               </Button>
             </Space>
             <Table
@@ -123,31 +174,56 @@ const AuditReport = () => {
         width={800}
       >
         {selectedReport && (
-          <Descriptions bordered column={2}>
-            <Descriptions.Item label="报告ID">{selectedReport.id}</Descriptions.Item>
-            <Descriptions.Item label="审核任务">{selectedReport.taskName}</Descriptions.Item>
-            <Descriptions.Item label="审核日期">{selectedReport.auditDate}</Descriptions.Item>
-            <Descriptions.Item label="审核人">{selectedReport.auditor}</Descriptions.Item>
-            <Descriptions.Item label="状态">{selectedReport.status}</Descriptions.Item>
-            <Descriptions.Item label="发现问题数">{selectedReport.issuesFound}</Descriptions.Item>
-            <Descriptions.Item label="审核结果" span={2}>
-              <Paragraph>{selectedReport.summary}</Paragraph>
-            </Descriptions.Item>
-            <Descriptions.Item label="主要发现" span={2}>
-              <ul>
-                {selectedReport.findings.map((finding, index) => (
-                  <li key={index}>{finding}</li>
-                ))}
-              </ul>
-            </Descriptions.Item>
-            <Descriptions.Item label="建议" span={2}>
-              <ul>
-                {selectedReport.recommendations.map((rec, index) => (
-                  <li key={index}>{rec}</li>
-                ))}
-              </ul>
-            </Descriptions.Item>
-          </Descriptions>
+          <>
+            <Descriptions bordered column={2}>
+              <Descriptions.Item label="报告ID">{selectedReport.id}</Descriptions.Item>
+              <Descriptions.Item label="审核任务">{selectedReport.taskName}</Descriptions.Item>
+              <Descriptions.Item label="审核日期">{selectedReport.auditDate}</Descriptions.Item>
+              <Descriptions.Item label="审核人">{selectedReport.auditor}</Descriptions.Item>
+              <Descriptions.Item label="状态">{selectedReport.status}</Descriptions.Item>
+              <Descriptions.Item label="发现问题数">{selectedReport.issuesFound}</Descriptions.Item>
+              <Descriptions.Item label="审核结果" span={2}>
+                <Paragraph>{selectedReport.summary}</Paragraph>
+              </Descriptions.Item>
+              <Descriptions.Item label="主要发现" span={2}>
+                <ul>
+                  {selectedReport.findings.map((finding, index) => (
+                    <li key={index}>{finding}</li>
+                  ))}
+                </ul>
+              </Descriptions.Item>
+              <Descriptions.Item label="建议" span={2}>
+                <ul>
+                  {selectedReport.recommendations.map((rec, index) => (
+                    <li key={index}>{rec}</li>
+                  ))}
+                </ul>
+              </Descriptions.Item>
+              <Descriptions.Item label="AI摘要" span={2}>
+                {aiSummary ? (
+                  <Paragraph>{aiSummary}</Paragraph>
+                ) : (
+                  <Button onClick={() => generateAISummary(selectedReport.id)}>
+                    生成AI摘要
+                  </Button>
+                )}
+              </Descriptions.Item>
+            </Descriptions>
+            <div style={{ marginTop: 16 }}>
+              <Input.Search
+                placeholder="询问关于报告的问题"
+                enterButton="提问"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onSearch={handleQuestionSubmit}
+              />
+              {answer && (
+                <Paragraph style={{ marginTop: 8 }}>
+                  <strong>AI回答：</strong> {answer}
+                </Paragraph>
+              )}
+            </div>
+          </>
         )}
       </Modal>
     </Content>

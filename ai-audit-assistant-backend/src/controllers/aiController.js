@@ -1,11 +1,31 @@
+const reportAnalyzer = require('../ai/reportAnalyzer');
+
+exports.generateReportSummary = async (req, res) => {
+  try {
+    const { reportId } = req.body;
+    const summary = await reportAnalyzer.generateSummary(reportId);
+    res.json({ summary });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate summary' });
+  }
+};
+
+exports.askQuestion = async (req, res) => {
+  try {
+    const { reportId, question } = req.body;
+    const answer = await reportAnalyzer.answerQuestion(reportId, question);
+    res.json({ answer });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to answer question' });
+  }
+};
+
 exports.detectAnomalies = async (req, res) => {
-    try {
-        const tasks = req.body.tasks;
-        // 这里实现异常检测逻辑
-        const anomalies = {}; // 暂时返回空对象，之后替换为实际的异常检测结果
-        res.json(anomalies);
-    } catch (error) {
-        console.error('Error in detectAnomalies:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+  try {
+    const { reportId } = req.body;
+    const riskLevel = await reportAnalyzer.detectAnomalies(reportId);
+    res.json({ riskLevel });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to detect anomalies' });
+  }
 };
