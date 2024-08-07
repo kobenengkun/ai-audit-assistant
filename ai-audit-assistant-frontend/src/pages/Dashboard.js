@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, theme, Table, List, Input, Modal, Avatar, Tooltip } from 'antd';
+import { Layout, Card, Row, Col, Typography, Spin, DatePicker, Switch, Button, message, ConfigProvider, List, Input, Avatar, Statistic, Tooltip, theme } from 'antd';
 import { PieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DownloadOutlined, ReloadOutlined, PlusOutlined, RobotOutlined, SendOutlined, UserOutlined, WarningOutlined } from '@ant-design/icons';
 import { dashboard } from '../services/api';
@@ -7,7 +7,6 @@ import { dashboard } from '../services/api';
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
-const { Search } = Input;
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
@@ -67,6 +66,11 @@ const Dashboard = () => {
     }
   };
 
+  const handleStatisticClick = (type) => {
+    console.log(`Clicked on statistic: ${type}`);
+    // 这里可以添加更多逻辑，比如导航到详细页面等
+  };
+
   if (loading) return <Spin size="large" />;
   if (!data) return <div>没有可用数据</div>;
 
@@ -97,13 +101,27 @@ const Dashboard = () => {
 
         <Row gutter={[16, 16]}>
           <Col span={8}>
-            <Statistic title="总审核任务" value={data.totalTasks} />
+            <Statistic
+              title="总审核任务"
+              value={data.totalTasks}
+              onClick={() => handleStatisticClick('totalTasks')}
+            />
           </Col>
           <Col span={8}>
-            <Statistic title="待处理任务" value={data.pendingTasks} valueStyle={{ color: '#ff4d4f' }} />
+            <Statistic
+              title="待处理任务"
+              value={data.pendingTasks}
+              valueStyle={{ color: '#ff4d4f' }}
+              onClick={() => handleStatisticClick('pendingTasks')}
+            />
           </Col>
           <Col span={8}>
-            <Statistic title="本月完成任务" value={data.completedTasksThisMonth} valueStyle={{ color: '#52c41a' }} />
+            <Statistic
+              title="本月完成任务"
+              value={data.completedTasksThisMonth}
+              valueStyle={{ color: '#52c41a' }}
+              onClick={() => handleStatisticClick('completedTasksThisMonth')}
+            />
           </Col>
         </Row>
 
@@ -186,13 +204,28 @@ const Dashboard = () => {
             <Card title="性能指标">
               <Row gutter={16}>
                 <Col span={8}>
-                  <Statistic title="平均审核时间" value={data.avgAuditTime} suffix="分钟" />
+                  <Statistic
+                    title="平均审核时间"
+                    value={data.avgAuditTime}
+                    suffix="分钟"
+                    onClick={() => handleStatisticClick('avgAuditTime')}
+                  />
                 </Col>
                 <Col span={8}>
-                  <Statistic title="审核效率" value={data.auditEfficiency} suffix="%" />
+                  <Statistic
+                    title="审核效率"
+                    value={data.auditEfficiency}
+                    suffix="%"
+                    valueStyle={{ color: '#ff4d4f' }}
+                    onClick={() => handleStatisticClick('auditEfficiency')}
+                  />
                 </Col>
                 <Col span={8}>
-                  <Statistic title="本月新增任务" value={data.newTasksThisMonth} />
+                  <Statistic
+                    title="本月新增任务"
+                    value={data.newTasksThisMonth}
+                    onClick={() => handleStatisticClick('newTasksThisMonth')}
+                  />
                 </Col>
               </Row>
             </Card>
@@ -277,15 +310,5 @@ const Dashboard = () => {
     </ConfigProvider>
   );
 };
-
-const Statistic = ({ title, value, valueStyle, suffix }) => (
-  <Card>
-    <Text>{title}</Text>
-    <Title level={3} style={valueStyle}>
-      {value}
-      {suffix && <small style={{ fontSize: '65%', marginLeft: 8 }}>{suffix}</small>}
-    </Title>
-  </Card>
-);
 
 export default Dashboard;

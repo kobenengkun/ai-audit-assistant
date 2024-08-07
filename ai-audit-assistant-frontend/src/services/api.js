@@ -59,7 +59,8 @@ function handleApiError(error) {
 }
 
 export const auditPlans = {
-  fetchAll: () => api.get('/audit-plans').then(response => response.data).catch(handleApiError),
+  fetchAll: (params) => api.get('/audit-plans', { params }).then(response => response.data).catch(handleApiError),
+  fetchTemplates: () => api.get('/plan-templates').then(response => response.data).catch(handleApiError),
   create: (data) => api.post('/audit-plans', data).catch(handleApiError),
   update: (id, data) => api.put(`/audit-plans/${id}`, data).catch(handleApiError),
   delete: (id) => api.delete(`/audit-plans/${id}`).catch(handleApiError),
