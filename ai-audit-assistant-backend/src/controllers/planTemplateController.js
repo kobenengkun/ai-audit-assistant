@@ -42,3 +42,7 @@ exports.createTemplate = async (req, res) => {
 };
 
 // 可以添加更多的控制器方法，如更新、删除模板等
+
+app.post('/api/upload-template', upload.single('file'), (req, res) => {
+  // 处理文件上传逻辑
+});
