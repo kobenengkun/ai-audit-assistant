@@ -2,11 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   Layout, Table, Button, Modal, Form, Input, DatePicker, Select, Space,
   message, Tag, Alert, Popconfirm, Card, Row, Col, Statistic, Progress,
-  Calendar, Badge, Tabs, List, Drawer, Descriptions, Divider
+  Calendar, Badge, Tabs, List, Drawer, Descriptions, Divider, Upload
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, FileAddOutlined,
-  SafetyOutlined, SearchOutlined, EyeOutlined
+  SafetyOutlined, SearchOutlined, EyeOutlined, InboxOutlined
 } from '@ant-design/icons';
 import { auditPlans } from '../services/api';
 import { handleError } from '../utils/errorHandler';
@@ -16,6 +16,7 @@ const { Content } = Layout;
 const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+const { Dragger } = Upload;
 
 const AuditPlan = () => {
   const [form] = Form.useForm();
@@ -117,6 +118,27 @@ const AuditPlan = () => {
       }
     }
   }, [templateForm, fetchTemplates]);
+
+  const handleTemplateUpload = useCallback((info) => {
+    const { status } = info.file;
+    if (status === 'done') {
+      message.success(`${info.file.name} 文件上传成功`);
+      // 处理上传成功的文件，解析内容并填充表单
+      handleFileContent(info.file.response);
+    } else if (status === 'error') {
+      message.error(`${info.file.name} 文件上传失败`);
+    }
+  }, []);
+
+  const handleFileContent = useCallback((content) => {
+    // 解析文件内容并填充表单
+    templateForm.setFieldsValue({
+      name: content.name,
+      type: content.type,
+      standard: content.standard,
+      description: content.description
+    });
+  }, [templateForm]);
 
   const handleUseTemplate = useCallback((template) => {
     form.setFieldsValue({
@@ -361,7 +383,7 @@ const AuditPlan = () => {
           </Form.Item>
           <Form.Item name="standard" label="审核标准" rules={[{ required: true }]}>
             <Select mode="multiple">
-              <Option value="ISO 9001">ISO 9001</Option>
+            <Option value="ISO 9001">ISO 9001</Option>
               <Option value="ISO 14001">ISO 14001</Option>
               <Option value="OHSAS 18001">OHSAS 18001</Option>
             </Select>
@@ -374,7 +396,7 @@ const AuditPlan = () => {
               <Option value="计划中">计划中</Option>
               <Option value="进行中">进行中</Option>
               <Option value="已完成">已完成</Option>
-              </Select>
+            </Select>
           </Form.Item>
           <Form.Item name="progress" label="进度" rules={[{ required: true, type: 'number', min: 0, max: 100 }]}>
             <Input type="number" suffix="%" />
@@ -425,6 +447,20 @@ const AuditPlan = () => {
             label="模板描述"
           >
             <Input.TextArea />
+          </Form.Item>
+          <Form.Item label="上传模板文件">
+            <Dragger
+              name="file"
+              multiple={false}
+              action="/api/upload-template"
+              onChange={handleTemplateUpload}
+            >
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
+              <p className="ant-upload-hint">支持单个文件上传。支持 Excel, CSV, 或 JSON 格式。</p>
+            </Dragger>
           </Form.Item>
         </Form>
       </Modal>

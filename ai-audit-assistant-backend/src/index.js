@@ -1,5 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const XLSX = require('xlsx');
+const csv = require('csv-parser');
+const fs = require('fs');
 const aiRoutes = require('./routes/aiRoutes');
 require('dotenv').config();
 
@@ -21,6 +25,9 @@ app.options('*', cors());
 app.use(express.json());
 app.use('/api', aiRoutes); // 这行很重要,它将aiRoutes挂载到'/api'路径下
 
+// 配置 multer 用于文件上传
+const upload = multer({ dest: 'uploads/' });
+
 // 日志中间件
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
@@ -28,7 +35,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// 模拟数据（考虑移到单独的模块）
 // 模拟数据（考虑移到单独的模块）
 let auditPlans = [
   { id: '1', name: 'Audit Plan 1', type: 'Type A', startDate: '2024-08-01', endDate: '2024-08-05', status: '计划中' },
@@ -251,6 +257,50 @@ app.post('/api/plan-templates', (req, res) => {
   } catch (error) {
     console.error('Error creating plan template:', error);
     res.status(500).json({ message: 'Error creating plan template' });
+  }
+});
+
+// 新增：处理模板文件上传
+app.post('/api/upload-template', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+
+  const file = req.file;
+  let templateData = {};
+
+  try {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      // 处理 Excel 文件
+      const workbook = XLSX.readFile(file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      templateData = XLSX.utils.sheet_to_json(worksheet)[0];
+    } else if (file.mimetype === 'text/csv') {
+      // 处理 CSV 文件
+      const results = [];
+      fs.createReadStream(file.path)
+        .pipe(csv())
+        .on('data', (data) => results.push(data))
+        .on('end', () => {
+          templateData = results[0];
+        });
+    } else if (file.mimetype === 'application/json') {
+      // 处理 JSON 文件
+      const fileContent = fs.readFileSync(file.path, 'utf8');
+      templateData = JSON.parse(fileContent);
+    } else {
+      return res.status(400).send('Unsupported file type.');
+    }
+
+    // 清理临时文件
+    fs.unlinkSync(file.path);
+
+    // 返回解析后的模板数据
+    res.json(templateData);
+  } catch (error) {
+    console.error('Error processing uploaded file:', error);
+    res.status(500).json({ message: 'Error processing uploaded file', error: error.message });
   }
 });
 
