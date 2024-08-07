@@ -109,8 +109,12 @@ const AuditPlan = () => {
       setIsTemplateModalVisible(false);
       fetchTemplates();
     } catch (error) {
-      message.error('创建模板失败');
-      handleError(error);
+      if (error.errorFields) {
+        message.error('请填写所有必填字段');
+      } else {
+        message.error('创建模板失败');
+        handleError(error);
+      }
     }
   }, [templateForm, fetchTemplates]);
 
@@ -342,7 +346,39 @@ const AuditPlan = () => {
         width={800}
       >
         <Form form={form} layout="vertical">
-          {/* 编辑/创建审核计划表单字段,此处省略 */}
+          <Form.Item name="name" label="审核计划名称" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="type" label="审核类型" rules={[{ required: true }]}>
+            <Select>
+              <Option value="财务审核">财务审核</Option>
+              <Option value="合规审核">合规审核</Option>
+              <Option value="运营审核">运营审核</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="staff" label="审核人员" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="standard" label="审核标准" rules={[{ required: true }]}>
+            <Select mode="multiple">
+              <Option value="ISO 9001">ISO 9001</Option>
+              <Option value="ISO 14001">ISO 14001</Option>
+              <Option value="OHSAS 18001">OHSAS 18001</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="dateRange" label="审核日期范围" rules={[{ required: true }]}>
+            <RangePicker />
+          </Form.Item>
+          <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+            <Select>
+              <Option value="计划中">计划中</Option>
+              <Option value="进行中">进行中</Option>
+              <Option value="已完成">已完成</Option>
+              </Select>
+          </Form.Item>
+          <Form.Item name="progress" label="进度" rules={[{ required: true, type: 'number', min: 0, max: 100 }]}>
+            <Input type="number" suffix="%" />
+          </Form.Item>
         </Form>
       </Modal>
         
@@ -354,7 +390,42 @@ const AuditPlan = () => {
         width={800}
       >
         <Form form={templateForm} layout="vertical">
-          {/* 创建审核计划模板表单字段,此处省略 */}
+          <Form.Item
+            name="name"
+            label="模板名称"
+            rules={[{ required: true, message: '请输入模板名称' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="type"
+            label="审核类型"
+            rules={[{ required: true, message: '请选择审核类型' }]}
+          >
+            <Select>
+              <Option value="财务审核">财务审核</Option>
+              <Option value="合规审核">合规审核</Option>
+              <Option value="运营审核">运营审核</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="standard"
+            label="审核标准"
+            rules={[{ required: true, message: '请选择审核标准' }]}
+          >
+            <Select mode="multiple">
+              <Option value="ISO 9001">ISO 9001</Option>
+              <Option value="ISO 14001">ISO 14001</Option>
+              <Option value="OHSAS 18001">OHSAS 18001</Option>
+              <Option value="其他">其他</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="模板描述"
+          >
+            <Input.TextArea />
+          </Form.Item>
         </Form>
       </Modal>
         
@@ -376,6 +447,9 @@ const AuditPlan = () => {
             <Descriptions.Item label="结束日期">{detailRecord.endDate}</Descriptions.Item>
             <Descriptions.Item label="状态">
               <Tag color={detailRecord.status === '已完成' ? 'green' : detailRecord.status === '进行中' ? 'blue' : 'orange'}>{detailRecord.status}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="进度">
+              <Progress percent={detailRecord.progress} size="small" />
             </Descriptions.Item>
           </Descriptions>
           <Divider />

@@ -67,6 +67,8 @@ export const auditPlans = {
   fetchById: (id) => api.get(`/audit-plans/${id}`).then(response => response.data).catch(handleApiError),
   getAiSuggestions: () => api.get('/audit-plans/ai-suggestions').then(response => response.data).catch(handleApiError),
   applyAiSuggestions: () => api.post('/audit-plans/apply-ai-suggestions').then(response => response.data).catch(handleApiError),
+  // 添加 createTemplate 方法
+  createTemplate: (data) => api.post('/plan-templates', data).then(response => response.data).catch(handleApiError),
 };
 
 export const dashboard = {

@@ -29,6 +29,7 @@ app.use((req, res, next) => {
 });
 
 // 模拟数据（考虑移到单独的模块）
+// 模拟数据（考虑移到单独的模块）
 let auditPlans = [
   { id: '1', name: 'Audit Plan 1', type: 'Type A', startDate: '2024-08-01', endDate: '2024-08-05', status: '计划中' },
   { id: '2', name: 'Audit Plan 2', type: 'Type B', startDate: '2024-08-10', endDate: '2024-08-15', status: '进行中' },
@@ -42,6 +43,12 @@ let auditTasks = [
 let auditReports = [
   { id: '1', taskName: '审核任务1', auditDate: '2024-08-01', auditor: '审核员A', status: '已完成' },
   { id: '2', taskName: '审核任务2', auditDate: '2024-08-05', auditor: '审核员B', status: '进行中' }
+];
+
+// 新增：计划模板模拟数据
+let planTemplates = [
+  { id: 1, name: '年度财务审核', type: '财务', standard: ['GAAP', 'IFRS'] },
+  { id: 2, name: '季度合规检查', type: '合规', standard: ['ISO 9001', 'ISO 14001'] }
 ];
 
 // AI相关的模拟数据
@@ -221,6 +228,30 @@ app.put('/api/audit-tasks/:id', (req, res) => {
 // 审核报告路由
 app.get('/api/audit-reports', (req, res) => {
   res.json(auditReports);
+});
+
+// 新增：计划模板路由
+app.get('/api/plan-templates', (req, res) => {
+  try {
+    res.json(planTemplates);
+  } catch (error) {
+    console.error('Error fetching plan templates:', error);
+    res.status(500).json({ message: 'Error fetching plan templates' });
+  }
+});
+
+app.post('/api/plan-templates', (req, res) => {
+  try {
+    const newTemplate = {
+      id: planTemplates.length + 1,
+      ...req.body
+    };
+    planTemplates.push(newTemplate);
+    res.status(201).json({ message: 'Plan template created successfully', template: newTemplate });
+  } catch (error) {
+    console.error('Error creating plan template:', error);
+    res.status(500).json({ message: 'Error creating plan template' });
+  }
 });
 
 // AI相关路由
